@@ -928,8 +928,10 @@ const KopSuratInstansi: React.FC<{ teacher: TeacherProfile; subtitle?: string }>
         <p className="text-xs sm:text-sm font-bold tracking-wide uppercase">
           {APP_CONFIG.schoolDefault.dinas}
         </p>
-        <h2 className="text-sm sm:text-lg font-extrabold tracking-wide uppercase mt-0.5">
-          {teacher.namaSekolah || APP_CONFIG.schoolDefault.namaSekolah}
+        <h2 className="text-sm sm:text-lg font-extrabold tracking-wide uppercase mt-0.5 leading-tight">
+          SEKOLAH MENENGAH KEJURUAN NEGERI 1
+          <br />
+          GOMBONG
         </h2>
         <p className="text-[10px] sm:text-xs text-slate-800 mt-0.5">
           {teacher.alamatSekolah || APP_CONFIG.schoolDefault.alamat} Telepon {teacher.teleponSekolah || APP_CONFIG.schoolDefault.telepon}
@@ -1995,14 +1997,14 @@ export default function App() {
               <div className="mt-10 grid grid-cols-2 gap-8 text-xs sm:text-sm pt-4 break-inside-avoid">
                 <div>
                   <p>Mengetahui,</p>
-                  <p className="font-semibold">Kepala {db.teacher.namaSekolah}</p>
+                  <p className="font-bold">Kepala Sekolah</p>
                   <div className="h-16" />
                   <p className="font-bold underline">{db.teacher.kepalaSekolah || APP_CONFIG.schoolDefault.kepalaSekolah}</p>
                   <p>NIP. {db.teacher.nipKepalaSekolah || APP_CONFIG.schoolDefault.nipKepalaSekolah}</p>
                 </div>
                 <div className="text-left sm:pl-12">
-                  <p>Gombong, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                  <p className="font-semibold">Guru Mata Pelajaran TSM,</p>
+                  <p>Kebumen, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                  <p className="font-semibold">Guru Mata Pelajaran</p>
                   <div className="h-16" />
                   <p className="font-bold underline">
                     {[db.teacher.gelarDepan, db.teacher.namaLengkap, db.teacher.gelarBelakang].filter(Boolean).join(' ')}
