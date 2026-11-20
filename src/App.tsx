@@ -1830,7 +1830,7 @@ export default function App() {
             </button>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                <span>MotoTeach</span>
+                <span>Digital Workspace</span>
                 <span>/</span>
                 <span className="truncate">{currentNavLabel}</span>
               </div>
