@@ -1665,11 +1665,14 @@ export default function App() {
             dark={dark}
             onAdd={(fu) => updateDatabase((p) => ({ ...p, followUps: [fu, ...p.followUps] }), 'Program tindak lanjut disimpan')}
             onUpdate={(item) =>
-  updateDatabase(
-    (p) => ({ ...p, remedials: p.remedials.map((r) => (r.id === item.id ? item : r)) }),
-    'Data remedial & pengayaan diperbarui'
-  )
-}
+        updateDatabase(
+          (p) => ({
+            ...p,
+            followUps: p.followUps.map((f) => (f.id === item.id ? item : f)),
+          }),
+          'Program tindak lanjut diperbarui'
+        )
+      }
             onDelete={(id) =>
               updateDatabase((p) => ({ ...p, followUps: p.followUps.filter((f) => f.id !== id) }), 'Data tindak lanjut dihapus')
             }
