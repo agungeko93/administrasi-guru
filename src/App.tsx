@@ -1328,6 +1328,12 @@ export default function App() {
             semester={settings.semester}
             dark={dark}
             onAdd={(ev) => updateDatabase((prev) => ({ ...prev, calendar: [ev, ...prev.calendar] }), 'Agenda pendidikan ditambahkan')}
+            onUpdate={(ev) =>
+              updateDatabase(
+                (prev) => ({ ...prev, calendar: prev.calendar.map((c) => (c.id === ev.id ? ev : c)) }),
+                'Agenda pendidikan diperbarui'
+              )
+            }
             onDelete={(id) =>
               askConfirm('Hapus Agenda?', 'Agenda yang dihapus tidak dapat dikembalikan.', () =>
                 updateDatabase((prev) => ({ ...prev, calendar: prev.calendar.filter((c) => c.id !== id) }), 'Agenda dihapus')
@@ -1343,12 +1349,24 @@ export default function App() {
             settings={settings}
             dark={dark}
             onAddClass={(cls) => updateDatabase((p) => ({ ...p, classes: [...p.classes, cls] }), 'Kelas berhasil ditambahkan')}
+            onUpdateClass={(cls) =>
+              updateDatabase(
+                (p) => ({ ...p, classes: p.classes.map((c) => (c.id === cls.id ? cls : c)) }),
+                'Data kelas diperbarui'
+              )
+            }
             onDeleteClass={(id) =>
               askConfirm('Hapus Kelas?', 'Data kelas ini akan dihapus.', () =>
                 updateDatabase((p) => ({ ...p, classes: p.classes.filter((c) => c.id !== id) }), 'Kelas dihapus')
               )
             }
             onAddStudent={(st) => updateDatabase((p) => ({ ...p, students: [...p.students, st] }), 'Peserta didik ditambahkan')}
+            onUpdateStudent={(st) =>
+              updateDatabase(
+                (p) => ({ ...p, students: p.students.map((s) => (s.id === st.id ? st : s)) }),
+                'Data peserta didik diperbarui'
+              )
+            }
             onBulkImportStudents={(list) =>
               updateDatabase((p) => ({ ...p, students: [...p.students, ...list] }), `${list.length} peserta didik berhasil diimpor`)
             }
@@ -1366,6 +1384,12 @@ export default function App() {
             settings={settings}
             dark={dark}
             onAdd={(sub) => updateDatabase((p) => ({ ...p, subjects: [...p.subjects, sub] }), 'Mata pelajaran ditambahkan')}
+            onUpdate={(sub) =>
+              updateDatabase(
+                (p) => ({ ...p, subjects: p.subjects.map((s) => (s.id === sub.id ? sub : s)) }),
+                'Mata pelajaran diperbarui'
+              )
+            }
             onDelete={(id) =>
               askConfirm('Hapus Mata Pelajaran?', 'Yakin menghapus mata pelajaran ini?', () =>
                 updateDatabase((p) => ({ ...p, subjects: p.subjects.filter((s) => s.id !== id) }), 'Mata pelajaran dihapus')
@@ -1380,6 +1404,12 @@ export default function App() {
             subjects={db.subjects}
             dark={dark}
             onAdd={(cp) => updateDatabase((p) => ({ ...p, cps: [...p.cps, cp] }), 'Capaian Pembelajaran berhasil disimpan')}
+            onUpdate={(cp) =>
+              updateDatabase(
+                (p) => ({ ...p, cps: p.cps.map((c) => (c.id === cp.id ? cp : c)) }),
+                'Capaian Pembelajaran diperbarui'
+              )
+            }
             onDelete={(id) =>
               askConfirm('Hapus CP?', 'Hapus data Capaian Pembelajaran ini?', () =>
                 updateDatabase((p) => ({ ...p, cps: p.cps.filter((c) => c.id !== id) }), 'CP dihapus')
@@ -1395,6 +1425,12 @@ export default function App() {
             subjects={db.subjects}
             dark={dark}
             onAdd={(an) => updateDatabase((p) => ({ ...p, cpAnalyses: [...p.cpAnalyses, an] }), 'Analisis CP berhasil disimpan')}
+            onUpdate={(an) =>
+              updateDatabase(
+                (p) => ({ ...p, cpAnalyses: p.cpAnalyses.map((a) => (a.id === an.id ? an : a)) }),
+                'Analisis CP diperbarui'
+              )
+            }
             onDelete={(id) =>
               askConfirm('Hapus Analisis CP?', 'Data analisis ini akan dihapus.', () =>
                 updateDatabase((p) => ({ ...p, cpAnalyses: p.cpAnalyses.filter((a) => a.id !== id) }), 'Analisis CP dihapus')
@@ -1412,6 +1448,12 @@ export default function App() {
             settings={settings}
             dark={dark}
             onAdd={(item) => updateDatabase((p) => ({ ...p, atps: [...p.atps, item] }), 'Tujuan Pembelajaran ditambahkan ke ATP')}
+            onUpdate={(item) =>
+              updateDatabase(
+                (p) => ({ ...p, atps: p.atps.map((a) => (a.id === item.id ? item : a)) }),
+                'Tujuan Pembelajaran pada ATP diperbarui'
+              )
+            }
             onReorder={(nextAtps) => updateDatabase((p) => ({ ...p, atps: nextAtps }), 'Urutan ATP diperbarui')}
             onDelete={(id) =>
               askConfirm('Hapus TP dari ATP?', 'Tujuan pembelajaran akan dihapus dari alur.', () =>
@@ -1431,6 +1473,12 @@ export default function App() {
             settings={settings}
             dark={dark}
             onAdd={(item) => updateDatabase((p) => ({ ...p, protas: [...p.protas, item] }), 'Program Tahunan disimpan')}
+            onUpdate={(item) =>
+              updateDatabase(
+                (p) => ({ ...p, protas: p.protas.map((x) => (x.id === item.id ? item : x)) }),
+                'Program Tahunan diperbarui'
+              )
+            }
             onDelete={(id) =>
               updateDatabase((p) => ({ ...p, protas: p.protas.filter((x) => x.id !== id) }), 'Baris PROTA dihapus')
             }
@@ -1448,6 +1496,12 @@ export default function App() {
             settings={settings}
             dark={dark}
             onAdd={(item) => updateDatabase((p) => ({ ...p, promes: [...p.promes, item] }), 'Jadwal PROMES ditambahkan')}
+            onUpdate={(item) =>
+              updateDatabase(
+                (p) => ({ ...p, promes: p.promes.map((x) => (x.id === item.id ? item : x)) }),
+                'Jadwal PROMES diperbarui'
+              )
+            }
             onDelete={(id) =>
               updateDatabase((p) => ({ ...p, promes: p.promes.filter((x) => x.id !== id) }), 'Item PROMES dihapus')
             }
@@ -1515,6 +1569,12 @@ export default function App() {
             teacher={db.teacher}
             dark={dark}
             onAdd={(j) => updateDatabase((p) => ({ ...p, journals: [j, ...p.journals] }), 'Jurnal mengajar tersimpan')}
+            onUpdate={(item) =>
+  updateDatabase(
+    (p) => ({ ...p, journals: p.journals.map((j) => (j.id === item.id ? item : j)) }),
+    'Jurnal mengajar diperbarui'
+  )
+}
             onDelete={(id) =>
               askConfirm('Hapus Jurnal?', 'Hapus entri jurnal mengajar ini?', () =>
                 updateDatabase((p) => ({ ...p, journals: p.journals.filter((j) => j.id !== id) }), 'Jurnal dihapus')
@@ -1555,6 +1615,12 @@ export default function App() {
             onAddAssessment={(asm) =>
               updateDatabase((p) => ({ ...p, assessments: [asm, ...p.assessments] }), 'Asesmen baru berhasil dibuat')
             }
+            onUpdate={(item) =>
+  updateDatabase(
+    (p) => ({ ...p, assessments: p.assessments.map((a) => (a.id === item.id ? item : a)) }),
+    'Data asesmen diperbarui'
+  )
+}
             onSaveGrades={(assessmentId, newGrades) =>
               updateDatabase((p) => {
                 const others = p.grades.filter((g) => g.assessmentId !== assessmentId);
@@ -1598,6 +1664,12 @@ export default function App() {
             kktpDefault={settings.kktpDefault}
             dark={dark}
             onAdd={(fu) => updateDatabase((p) => ({ ...p, followUps: [fu, ...p.followUps] }), 'Program tindak lanjut disimpan')}
+            onUpdate={(item) =>
+  updateDatabase(
+    (p) => ({ ...p, remedials: p.remedials.map((r) => (r.id === item.id ? item : r)) }),
+    'Data remedial & pengayaan diperbarui'
+  )
+}
             onDelete={(id) =>
               updateDatabase((p) => ({ ...p, followUps: p.followUps.filter((f) => f.id !== id) }), 'Data tindak lanjut dihapus')
             }
@@ -2561,8 +2633,10 @@ const CalendarView: React.FC<{
   semester: 'Ganjil' | 'Genap';
   dark: boolean;
   onAdd: (e: CalendarEvent) => void;
+  onUpdate: (e: CalendarEvent) => void;
   onDelete: (id: string) => void;
-}> = ({ events, semester, dark, onAdd, onDelete }) => {
+}> = ({ events, semester, dark, onAdd, onUpdate, onDelete }) => {
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [judul, setJudul] = useState('');
   const [tanggalMulai, setTanggalMulai] = useState(todayISO());
   const [tanggalSelesai, setTanggalSelesai] = useState(todayISO());
@@ -2580,6 +2654,24 @@ const CalendarView: React.FC<{
     'Lainnya': 'bg-slate-100 text-slate-800',
   };
 
+  const resetForm = () => {
+    setEditingId(null);
+    setJudul('');
+    setTanggalMulai(todayISO());
+    setTanggalSelesai(todayISO());
+    setKategori('Praktik Bengkel');
+    setKeterangan('');
+  };
+
+  const handleEdit = (ev: CalendarEvent) => {
+    setEditingId(ev.id);
+    setJudul(ev.judul);
+    setTanggalMulai(ev.tanggalMulai);
+    setTanggalSelesai(ev.tanggalSelesai);
+    setKategori(ev.kategori);
+    setKeterangan(ev.keterangan || '');
+  };
+
   const inputCls = `w-full px-3.5 py-2.5 rounded-xl border text-sm min-h-[44px] ${
     dark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
   }`;
@@ -2590,21 +2682,16 @@ const CalendarView: React.FC<{
         onSubmit={(e) => {
           e.preventDefault();
           if (!judul.trim()) return;
-          onAdd({
-            id: uid('cal'),
-            judul,
-            tanggalMulai,
-            tanggalSelesai,
-            kategori,
-            semester,
-            keterangan,
-          });
-          setJudul('');
-          setKeterangan('');
+          if (editingId) {
+            onUpdate({ id: editingId, judul, tanggalMulai, tanggalSelesai, kategori, semester, keterangan });
+          } else {
+            onAdd({ id: uid('cal'), judul, tanggalMulai, tanggalSelesai, kategori, semester, keterangan });
+          }
+          resetForm();
         }}
         className={`p-5 rounded-2xl border space-y-4 h-fit ${dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'}`}
       >
-        <h3 className="font-bold text-base">Tambah Agenda Pendidikan</h3>
+        <h3 className="font-bold text-base">{editingId ? 'Edit Agenda Pendidikan' : 'Tambah Agenda Pendidikan'}</h3>
         <div>
           <label className="block text-xs font-semibold mb-1">Judul Agenda *</label>
           <input required className={inputCls} value={judul} onChange={(e) => setJudul(e.target.value)} placeholder="Contoh: Uji Kompetensi Keahlian TSM" />
@@ -2632,9 +2719,16 @@ const CalendarView: React.FC<{
           <label className="block text-xs font-semibold mb-1">Keterangan</label>
           <input className={inputCls} value={keterangan} onChange={(e) => setKeterangan(e.target.value)} placeholder="Catatan tambahan lokasi/kelas..." />
         </div>
-        <button type="submit" className="w-full py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm min-h-[44px]">
-          + Simpan Agenda
-        </button>
+        <div className="flex gap-2">
+          <button type="submit" className="flex-1 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm min-h-[44px]">
+            {editingId ? 'Simpan Perubahan' : '+ Simpan Agenda'}
+          </button>
+          {editingId && (
+            <button type="button" onClick={resetForm} className="px-4 py-2.5 rounded-xl border text-sm font-semibold">
+              Batal
+            </button>
+          )}
+        </div>
       </form>
 
       <div className={`lg:col-span-2 p-5 rounded-2xl border ${dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'}`}>
@@ -2662,13 +2756,24 @@ const CalendarView: React.FC<{
                   <h4 className="font-bold text-sm mt-1">{ev.judul}</h4>
                   {ev.keterangan && <p className="text-xs text-slate-500 mt-0.5">{ev.keterangan}</p>}
                 </div>
-                <button
-                  onClick={() => onDelete(ev.id)}
-                  className="p-2 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50"
-                  title="Hapus"
-                >
-                  <Trash2 size={16} />
-                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleEdit(ev)}
+                    className="p-2 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50"
+                    title="Edit Agenda"
+                  >
+                    <Edit3 size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(ev.id)}
+                    className="p-2 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50"
+                    title="Hapus"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -2677,7 +2782,6 @@ const CalendarView: React.FC<{
     </div>
   );
 };
-
 // --- 4. DATA KELAS & PESERTA DIDIK ---
 const ClassesStudentsView: React.FC<{
   classes: SchoolClass[];
@@ -2685,8 +2789,10 @@ const ClassesStudentsView: React.FC<{
   settings: AppSettings;
   dark: boolean;
   onAddClass: (c: SchoolClass) => void;
+  onUpdateClass: (c: SchoolClass) => void;
   onDeleteClass: (id: string) => void;
   onAddStudent: (s: Student) => void;
+  onUpdateStudent: (s: Student) => void;
   onBulkImportStudents: (list: Student[]) => void;
   onDeleteStudent: (id: string) => void;
 }> = ({
@@ -2695,15 +2801,19 @@ const ClassesStudentsView: React.FC<{
   settings,
   dark,
   onAddClass,
+  onUpdateClass,
   onDeleteClass,
   onAddStudent,
+  onUpdateStudent,
   onBulkImportStudents,
   onDeleteStudent,
 }) => {
+  const [editingClassId, setEditingClassId] = useState<string | null>(null);
   const [namaKelas, setNamaKelas] = useState('');
   const [tingkat, setTingkat] = useState<'X' | 'XI' | 'XII'>('X');
   const [waliKelas, setWaliKelas] = useState('');
 
+  const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
   const [selectedClass, setSelectedClass] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [nis, setNis] = useState('');
@@ -2712,6 +2822,20 @@ const ClassesStudentsView: React.FC<{
   const [studentClassId, setStudentClassId] = useState('');
   const [bulkText, setBulkText] = useState('');
   const [showBulkModal, setShowBulkModal] = useState(false);
+
+  const resetClassForm = () => {
+    setEditingClassId(null);
+    setNamaKelas('');
+    setTingkat('X');
+    setWaliKelas('');
+  };
+
+  const resetStudentForm = () => {
+    setEditingStudentId(null);
+    setNis('');
+    setNamaSiswa('');
+    setJk('L');
+  };
 
   const inputCls = `w-full px-3.5 py-2.5 rounded-xl border text-sm min-h-[44px] ${
     dark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
@@ -2761,17 +2885,21 @@ const ClassesStudentsView: React.FC<{
           onSubmit={(e) => {
             e.preventDefault();
             if (!namaKelas.trim()) return;
-            onAddClass({
-              id: uid('cls'),
+            const payload: SchoolClass = {
+              id: editingClassId || uid('cls'),
               namaKelas,
               tingkat,
               fase: tingkat === 'X' ? 'E' : 'F',
               tahunAjaran: settings.tahunAjaran,
               semester: settings.semester,
               waliKelas,
-            });
-            setNamaKelas('');
-            setWaliKelas('');
+            };
+            if (editingClassId) {
+              onUpdateClass(payload);
+            } else {
+              onAddClass(payload);
+            }
+            resetClassForm();
           }}
           className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-5"
         >
@@ -2791,10 +2919,15 @@ const ClassesStudentsView: React.FC<{
             <label className="block text-[11px] font-semibold mb-1">Wali Kelas (Opsional)</label>
             <input className={inputCls} placeholder="Nama Wali Kelas" value={waliKelas} onChange={(e) => setWaliKelas(e.target.value)} />
           </div>
-          <div className="flex items-end">
-            <button type="submit" className="w-full px-4 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm min-h-[44px]">
-              + Tambah Kelas
+          <div className="flex items-end gap-2">
+            <button type="submit" className="flex-1 px-4 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm min-h-[44px]">
+              {editingClassId ? 'Update' : '+ Tambah Kelas'}
             </button>
+            {editingClassId && (
+              <button type="button" onClick={resetClassForm} className="px-3 py-2.5 rounded-xl border text-xs font-semibold min-h-[44px]">
+                Batal
+              </button>
+            )}
           </div>
         </form>
 
@@ -2812,9 +2945,24 @@ const ClassesStudentsView: React.FC<{
                   <h4 className="font-bold text-sm">{c.namaKelas}</h4>
                   <p className="text-xs text-slate-500">Kelas {c.tingkat} • Fase {c.fase} • {count} Siswa</p>
                 </div>
-                <button onClick={() => onDeleteClass(c.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg">
-                  <Trash2 size={16} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingClassId(c.id);
+                      setNamaKelas(c.namaKelas);
+                      setTingkat(c.tingkat);
+                      setWaliKelas(c.waliKelas || '');
+                    }}
+                    className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg"
+                    title="Edit Kelas"
+                  >
+                    <Edit3 size={16} />
+                  </button>
+                  <button type="button" onClick={() => onDeleteClass(c.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg" title="Hapus Kelas">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -2872,18 +3020,23 @@ const ClassesStudentsView: React.FC<{
             e.preventDefault();
             const targetCls = studentClassId || classes[0]?.id;
             if (!targetCls || !namaSiswa.trim()) return;
-            onAddStudent({
-              id: uid('std'),
+            const existing = students.find((s) => s.id === editingStudentId);
+            const payload: Student = {
+              id: editingStudentId || uid('std'),
               nis,
-              nisn: '',
+              nisn: existing?.nisn || '',
               namaLengkap: namaSiswa,
               jenisKelamin: jk,
               classId: targetCls,
-              statusAktif: 'Aktif',
-              keterangan: '',
-            });
-            setNis('');
-            setNamaSiswa('');
+              statusAktif: existing?.statusAktif || 'Aktif',
+              keterangan: existing?.keterangan || '',
+            };
+            if (editingStudentId) {
+              onUpdateStudent(payload);
+            } else {
+              onAddStudent(payload);
+            }
+            resetStudentForm();
           }}
           className="grid grid-cols-1 sm:grid-cols-5 gap-3"
         >
@@ -2912,13 +3065,17 @@ const ClassesStudentsView: React.FC<{
                 <option value="P">P</option>
               </select>
               <button type="submit" className="px-4 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm shrink-0">
-                + Tambah
+                {editingStudentId ? 'Update' : '+ Tambah'}
               </button>
+              {editingStudentId && (
+                <button type="button" onClick={resetStudentForm} className="px-3 py-2.5 rounded-xl border text-xs font-semibold shrink-0">
+                  Batal
+                </button>
+              )}
             </div>
           </div>
         </form>
 
-        {/* Filter & Pencarian Siswa */}
         <div className="flex flex-wrap gap-3 pt-2">
           <div className="relative flex-1 min-w-[200px]">
             <Search size={16} className="absolute left-3.5 top-3.5 text-slate-400" />
@@ -2960,9 +3117,25 @@ const ClassesStudentsView: React.FC<{
                   <td className="p-3">{st.jenisKelamin}</td>
                   <td className="p-3">{classes.find((c) => c.id === st.classId)?.namaKelas || '-'}</td>
                   <td className="p-3 text-right">
-                    <button onClick={() => onDeleteStudent(st.id)} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg">
-                      <Trash2 size={15} />
-                    </button>
+                    <div className="inline-flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingStudentId(st.id);
+                          setNis(st.nis);
+                          setNamaSiswa(st.namaLengkap);
+                          setJk(st.jenisKelamin);
+                          setStudentClassId(st.classId);
+                        }}
+                        className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg"
+                        title="Edit Peserta Didik"
+                      >
+                        <Edit3 size={15} />
+                      </button>
+                      <button type="button" onClick={() => onDeleteStudent(st.id)} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg" title="Hapus">
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -2980,8 +3153,10 @@ const SubjectsView: React.FC<{
   settings: AppSettings;
   dark: boolean;
   onAdd: (s: Subject) => void;
+  onUpdate: (s: Subject) => void;
   onDelete: (id: string) => void;
-}> = ({ subjects, settings, dark, onAdd, onDelete }) => {
+}> = ({ subjects, settings, dark, onAdd, onUpdate, onDelete }) => {
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [namaMapel, setNamaMapel] = useState('');
   const [fase, setFase] = useState<'E' | 'F'>('E');
   const [tingkat, setTingkat] = useState<'X' | 'XI' | 'XII'>('X');
@@ -2997,6 +3172,15 @@ const SubjectsView: React.FC<{
     }
   };
 
+  const resetForm = () => {
+    setEditingId(null);
+    setNamaMapel('');
+    setFase('E');
+    setTingkat('X');
+    setJumlahJp(108);
+    setKeterangan('');
+  };
+
   const inputCls = `w-full px-3.5 py-2.5 rounded-xl border text-sm min-h-[44px] ${
     dark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
   }`;
@@ -3007,8 +3191,8 @@ const SubjectsView: React.FC<{
         onSubmit={(e) => {
           e.preventDefault();
           if (!namaMapel.trim()) return;
-          onAdd({
-            id: uid('sub'),
+          const payload: Subject = {
+            id: editingId || uid('sub'),
             namaMapel,
             kelompok: fase === 'E' ? 'Dasar-Dasar Program Keahlian' : 'Kejuruan - Konsentrasi Keahlian',
             programKeahlian: 'Teknik Otomotif',
@@ -3019,16 +3203,22 @@ const SubjectsView: React.FC<{
             tahunAjaran: settings.tahunAjaran,
             semester: settings.semester,
             keterangan,
-          });
-          setNamaMapel('');
-          setKeterangan('');
+          };
+          if (editingId) {
+            onUpdate(payload);
+          } else {
+            onAdd(payload);
+          }
+          resetForm();
         }}
         className={`p-5 rounded-2xl border space-y-4 ${
           dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'
         }`}
       >
         <div className="border-b pb-3 border-slate-200 dark:border-slate-800">
-          <h3 className="font-bold text-base">Tambah Mata Pelajaran Kejuruan TSM</h3>
+          <h3 className="font-bold text-base">
+            {editingId ? 'Edit Mata Pelajaran Kejuruan TSM' : 'Tambah Mata Pelajaran Kejuruan TSM'}
+          </h3>
           <p className="text-xs text-slate-500">
             Fase E otomatis dipetakan ke Kelas X (Dasar Program Keahlian), sedangkan Fase F untuk Kelas XI & XII (Konsentrasi Keahlian).
           </p>
@@ -3095,10 +3285,15 @@ const SubjectsView: React.FC<{
             <p className="text-[11px] text-slate-400 mt-1">Catatan singkat ruang lingkup pembelajaran.</p>
           </div>
 
-          <div className="flex items-end">
-            <button type="submit" className="w-full px-4 py-2.5 rounded-xl bg-[#173B70] hover:bg-blue-900 text-white font-semibold text-sm min-h-[44px]">
-              + Tambah Mata Pelajaran
+          <div className="flex items-end gap-2">
+            <button type="submit" className="flex-1 px-4 py-2.5 rounded-xl bg-[#173B70] hover:bg-blue-900 text-white font-semibold text-sm min-h-[44px]">
+              {editingId ? 'Simpan Perubahan' : '+ Tambah Mata Pelajaran'}
             </button>
+            {editingId && (
+              <button type="button" onClick={resetForm} className="px-3 py-2.5 rounded-xl border text-xs font-semibold min-h-[44px]">
+                Batal
+              </button>
+            )}
           </div>
         </div>
       </form>
@@ -3121,9 +3316,26 @@ const SubjectsView: React.FC<{
               </p>
               {sub.keterangan && <p className="text-xs text-slate-400 mt-1">{sub.keterangan}</p>}
             </div>
-            <button onClick={() => onDelete(sub.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg" title="Hapus Mata Pelajaran">
-              <Trash2 size={16} />
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingId(sub.id);
+                  setNamaMapel(sub.namaMapel);
+                  setFase(sub.fase);
+                  setTingkat(sub.tingkat);
+                  setJumlahJp(sub.jumlahJp);
+                  setKeterangan(sub.keterangan || '');
+                }}
+                className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg"
+                title="Edit Mata Pelajaran"
+              >
+                <Edit3 size={16} />
+              </button>
+              <button type="button" onClick={() => onDelete(sub.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg" title="Hapus Mata Pelajaran">
+                <Trash2 size={16} />
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -3137,13 +3349,23 @@ const CPView: React.FC<{
   subjects: Subject[];
   dark: boolean;
   onAdd: (cp: LearningOutcome) => void;
+  onUpdate: (cp: LearningOutcome) => void;
   onDelete: (id: string) => void;
-}> = ({ cps, subjects, dark, onAdd, onDelete }) => {
+}> = ({ cps, subjects, dark, onAdd, onUpdate, onDelete }) => {
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [subjectId, setSubjectId] = useState(subjects[0]?.id || '');
   const [elemen, setElemen] = useState('');
   const [deskripsiCp, setDeskripsiCp] = useState('');
   const [sumberDokumen, setSumberDokumen] = useState('Keputusan Kepala BSKAP Kemendikdasmen');
-  const [tahunDokumen] = useState('2025');
+  const [tahunDokumen, setTahunDokumen] = useState('2025');
+
+  const resetForm = () => {
+    setEditingId(null);
+    setElemen('');
+    setDeskripsiCp('');
+    setSumberDokumen('Keputusan Kepala BSKAP Kemendikdasmen');
+    setTahunDokumen('2025');
+  };
 
   const inputCls = `w-full px-3.5 py-2.5 rounded-xl border text-sm min-h-[44px] ${
     dark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
@@ -3163,8 +3385,8 @@ const CPView: React.FC<{
           e.preventDefault();
           const sub = subjects.find((s) => s.id === (subjectId || subjects[0]?.id));
           if (!sub || !elemen.trim() || !deskripsiCp.trim()) return;
-          onAdd({
-            id: uid('cp'),
+          const payload: LearningOutcome = {
+            id: editingId || uid('cp'),
             subjectId: sub.id,
             fase: sub.fase,
             elemen,
@@ -3172,13 +3394,19 @@ const CPView: React.FC<{
             tahunDokumen,
             sumberDokumen,
             statusAktif: true,
-          });
-          setElemen('');
-          setDeskripsiCp('');
+          };
+          if (editingId) {
+            onUpdate(payload);
+          } else {
+            onAdd(payload);
+          }
+          resetForm();
         }}
         className={`p-5 rounded-2xl border space-y-4 ${dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'}`}
       >
-        <h3 className="font-bold text-base">Input Capaian Pembelajaran (CP)</h3>
+        <h3 className="font-bold text-base">
+          {editingId ? 'Edit Capaian Pembelajaran (CP)' : 'Input Capaian Pembelajaran (CP)'}
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-xs font-semibold mb-1">Mata Pelajaran *</label>
@@ -3209,9 +3437,16 @@ const CPView: React.FC<{
             onChange={(e) => setDeskripsiCp(e.target.value)}
           />
         </div>
-        <button type="submit" className="px-5 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm min-h-[44px]">
-          + Simpan Capaian Pembelajaran
-        </button>
+        <div className="flex gap-2">
+          <button type="submit" className="px-5 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm min-h-[44px]">
+            {editingId ? 'Simpan Perubahan CP' : '+ Simpan Capaian Pembelajaran'}
+          </button>
+          {editingId && (
+            <button type="button" onClick={resetForm} className="px-4 py-2.5 rounded-xl border text-sm font-semibold min-h-[44px]">
+              Batal
+            </button>
+          )}
+        </div>
       </form>
 
       <div className="space-y-3">
@@ -3224,9 +3459,26 @@ const CPView: React.FC<{
                   <span className="text-xs font-bold text-[#178C8C]">{sub?.namaMapel} • Fase {cp.fase}</span>
                   <h4 className="font-bold text-base mt-0.5">Elemen: {cp.elemen}</h4>
                 </div>
-                <button onClick={() => onDelete(cp.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg">
-                  <Trash2 size={16} />
-                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingId(cp.id);
+                      setSubjectId(cp.subjectId);
+                      setElemen(cp.elemen);
+                      setDeskripsiCp(cp.deskripsiCp);
+                      setSumberDokumen(cp.sumberDokumen);
+                      setTahunDokumen(cp.tahunDokumen);
+                    }}
+                    className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg"
+                    title="Edit CP"
+                  >
+                    <Edit3 size={16} />
+                  </button>
+                  <button type="button" onClick={() => onDelete(cp.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg" title="Hapus CP">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
               <p className="text-sm mt-2 leading-relaxed">{cp.deskripsiCp}</p>
               <p className="text-xs text-slate-500 mt-3">Referensi: {cp.sumberDokumen} ({cp.tahunDokumen})</p>
@@ -3245,8 +3497,10 @@ const CPAnalysisView: React.FC<{
   subjects: Subject[];
   dark: boolean;
   onAdd: (a: CPAnalysis) => void;
+  onUpdate: (a: CPAnalysis) => void;
   onDelete: (id: string) => void;
-}> = ({ analyses, cps, dark, onAdd, onDelete }) => {
+}> = ({ analyses, cps, dark, onAdd, onUpdate, onDelete }) => {
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [cpId, setCpId] = useState(cps[0]?.id || '');
   const [kompetensi, setKompetensi] = useState('');
   const [lingkupMateri, setLingkupMateri] = useState('');
@@ -3254,6 +3508,16 @@ const CPAnalysisView: React.FC<{
   const [bukti, setBukti] = useState('');
   const [praktik, setPraktik] = useState('');
   const [k3, setK3] = useState('');
+
+  const resetForm = () => {
+    setEditingId(null);
+    setKompetensi('');
+    setLingkupMateri('');
+    setKko('');
+    setBukti('');
+    setPraktik('');
+    setK3('');
+  };
 
   const inputCls = `w-full px-3.5 py-2.5 rounded-xl border text-sm min-h-[44px] ${
     dark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
@@ -3266,8 +3530,8 @@ const CPAnalysisView: React.FC<{
           e.preventDefault();
           const cp = cps.find((c) => c.id === (cpId || cps[0]?.id));
           if (!cp || !kompetensi.trim()) return;
-          onAdd({
-            id: uid('an'),
+          const payload: CPAnalysis = {
+            id: editingId || uid('an'),
             cpId: cp.id,
             subjectId: cp.subjectId,
             fase: cp.fase,
@@ -3279,15 +3543,19 @@ const CPAnalysisView: React.FC<{
             kebutuhanPraktik: praktik,
             aspekK3: k3,
             keterangan: '',
-          });
-          setKompetensi('');
-          setLingkupMateri('');
-          setKko('');
-          setBukti('');
+          };
+          if (editingId) {
+            onUpdate(payload);
+          } else {
+            onAdd(payload);
+          }
+          resetForm();
         }}
         className={`p-5 rounded-2xl border space-y-4 ${dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'}`}
       >
-        <h3 className="font-bold text-base">Lembar Analisis Capaian Pembelajaran (CP → Kompetensi & Materi)</h3>
+        <h3 className="font-bold text-base">
+          {editingId ? 'Edit Hasil Analisis CP' : 'Lembar Analisis Capaian Pembelajaran (CP → Kompetensi & Materi)'}
+        </h3>
         <div>
           <label className="block text-xs font-semibold mb-1">Pilih Elemen CP yang Dianalisis *</label>
           <select className={inputCls} value={cpId || cps[0]?.id || ''} onChange={(e) => setCpId(e.target.value)}>
@@ -3305,9 +3573,16 @@ const CPAnalysisView: React.FC<{
           <input className={inputCls} placeholder="Kebutuhan Unit / Alat Praktik Bengkel" value={praktik} onChange={(e) => setPraktik(e.target.value)} />
           <input className={inputCls} placeholder="Aspek Keselamatan Kerja (K3LH)" value={k3} onChange={(e) => setK3(e.target.value)} />
         </div>
-        <button type="submit" className="px-5 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm min-h-[44px]">
-          + Simpan Hasil Analisis CP
-        </button>
+        <div className="flex gap-2">
+          <button type="submit" className="px-5 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm min-h-[44px]">
+            {editingId ? 'Simpan Perubahan Analisis' : '+ Simpan Hasil Analisis CP'}
+          </button>
+          {editingId && (
+            <button type="button" onClick={resetForm} className="px-4 py-2.5 rounded-xl border text-sm font-semibold min-h-[44px]">
+              Batal
+            </button>
+          )}
+        </div>
       </form>
 
       <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
@@ -3332,9 +3607,28 @@ const CPAnalysisView: React.FC<{
                   <p className="text-amber-600"><strong>K3:</strong> {a.aspekK3 || '-'}</p>
                 </td>
                 <td className="p-3.5 text-right">
-                  <button onClick={() => onDelete(a.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg">
-                    <Trash2 size={15} />
-                  </button>
+                  <div className="inline-flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingId(a.id);
+                        setCpId(a.cpId);
+                        setKompetensi(a.kompetensi);
+                        setLingkupMateri(a.lingkupMateri);
+                        setKko(a.kataKerjaOperasional || '');
+                        setBukti(a.buktiKetercapaian || '');
+                        setPraktik(a.kebutuhanPraktik || '');
+                        setK3(a.aspekK3 || '');
+                      }}
+                      className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg"
+                      title="Edit Analisis"
+                    >
+                      <Edit3 size={15} />
+                    </button>
+                    <button type="button" onClick={() => onDelete(a.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg" title="Hapus">
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -3354,10 +3648,12 @@ const ATPView: React.FC<{
   settings: AppSettings;
   dark: boolean;
   onAdd: (item: ATPItem) => void;
+  onUpdate: (item: ATPItem) => void;
   onReorder: (next: ATPItem[]) => void;
   onDelete: (id: string) => void;
   onOpenPrint: (title: string, content: React.ReactNode) => void;
-}> = ({ atps, subjects, analyses, settings, dark, onAdd, onReorder, onDelete, onOpenPrint }) => {
+}> = ({ atps, subjects, analyses, settings, dark, onAdd, onUpdate, onReorder, onDelete, onOpenPrint }) => {
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [subjectId, setSubjectId] = useState(subjects[0]?.id || '');
   const [kodeTp, setKodeTp] = useState('TP.10.1');
   const [tpText, setTpText] = useState('');
@@ -3365,6 +3661,14 @@ const ATPView: React.FC<{
   const [jp, setJp] = useState(12);
 
   const sortedAtps = [...atps].sort((a, b) => a.urutan - b.urutan);
+
+  const resetForm = () => {
+    setEditingId(null);
+    setKodeTp(`TP.10.${sortedAtps.length + 1}`);
+    setTpText('');
+    setLingkup('');
+    setJp(12);
+  };
 
   const moveItem = (index: number, dir: -1 | 1) => {
     const target = index + dir;
@@ -3428,10 +3732,11 @@ const ATPView: React.FC<{
           e.preventDefault();
           const sub = subjects.find((s) => s.id === (subjectId || subjects[0]?.id));
           if (!sub || !tpText.trim()) return;
-          onAdd({
-            id: uid('atp'),
+          const existing = atps.find((a) => a.id === editingId);
+          const payload: ATPItem = {
+            id: editingId || uid('atp'),
             subjectId: sub.id,
-            analysisId: analyses[0]?.id || '',
+            analysisId: existing?.analysisId || analyses[0]?.id || '',
             fase: sub.fase,
             tahunAjaran: settings.tahunAjaran,
             semester: settings.semester,
@@ -3440,12 +3745,16 @@ const ATPView: React.FC<{
             tujuanPembelajaran: tpText,
             kompetensi: tpText.split(' ')[0] || 'Menerapkan',
             lingkupMateri: lingkup,
-            urutan: sortedAtps.length + 1,
+            urutan: existing ? existing.urutan : sortedAtps.length + 1,
             alokasiJp: jp,
-            keterangan: '',
-          });
-          setTpText('');
-          setLingkup('');
+            keterangan: existing?.keterangan || '',
+          };
+          if (editingId) {
+            onUpdate(payload);
+          } else {
+            onAdd(payload);
+          }
+          resetForm();
         }}
         className={`p-5 rounded-2xl border grid grid-cols-1 md:grid-cols-6 gap-3 ${
           dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'
@@ -3462,8 +3771,13 @@ const ATPView: React.FC<{
         <div className="flex gap-2">
           <input type="number" className={inputCls} value={jp} onChange={(e) => setJp(Number(e.target.value))} title="JP" />
           <button type="submit" className="px-4 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm shrink-0">
-            + TP
+            {editingId ? 'Update' : '+ TP'}
           </button>
+          {editingId && (
+            <button type="button" onClick={resetForm} className="px-3 py-2.5 rounded-xl border text-xs font-semibold shrink-0">
+              Batal
+            </button>
+          )}
         </div>
       </form>
 
@@ -3491,13 +3805,28 @@ const ATPView: React.FC<{
               </div>
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              <button onClick={() => moveItem(idx, -1)} disabled={idx === 0} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30">
+              <button type="button" onClick={() => moveItem(idx, -1)} disabled={idx === 0} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30" title="Geser Naik">
                 <ArrowUp size={16} />
               </button>
-              <button onClick={() => moveItem(idx, 1)} disabled={idx === sortedAtps.length - 1} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30">
+              <button type="button" onClick={() => moveItem(idx, 1)} disabled={idx === sortedAtps.length - 1} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30" title="Geser Turun">
                 <ArrowDown size={16} />
               </button>
-              <button onClick={() => onDelete(item.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingId(item.id);
+                  setSubjectId(item.subjectId);
+                  setKodeTp(item.kodeTp);
+                  setTpText(item.tujuanPembelajaran);
+                  setLingkup(item.lingkupMateri);
+                  setJp(item.alokasiJp);
+                }}
+                className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg"
+                title="Edit TP"
+              >
+                <Edit3 size={16} />
+              </button>
+              <button type="button" onClick={() => onDelete(item.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg" title="Hapus TP">
                 <Trash2 size={16} />
               </button>
             </div>
@@ -3517,9 +3846,11 @@ const ProtaView: React.FC<{
   settings: AppSettings;
   dark: boolean;
   onAdd: (p: ProtaItem) => void;
+  onUpdate: (p: ProtaItem) => void;
   onDelete: (id: string) => void;
   onOpenPrint: (title: string, content: React.ReactNode) => void;
-}> = ({ protas, atps, settings, dark, onAdd, onDelete, onOpenPrint }) => {
+}> = ({ protas, atps, settings, dark, onAdd, onUpdate, onDelete, onOpenPrint }) => {
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [atpId, setAtpId] = useState(atps[0]?.id || '');
   const [semester, setSemester] = useState<'Ganjil' | 'Genap'>(settings.semester);
   const [bulan, setBulan] = useState('Juli');
@@ -3527,6 +3858,13 @@ const ProtaView: React.FC<{
 
   const totalGanjil = protas.filter((p) => p.semester === 'Ganjil').reduce((s, p) => s + Number(p.alokasiJp), 0);
   const totalGenap = protas.filter((p) => p.semester === 'Genap').reduce((s, p) => s + Number(p.alokasiJp), 0);
+
+  const resetForm = () => {
+    setEditingId(null);
+    setSemester(settings.semester);
+    setBulan('Juli');
+    setJp(12);
+  };
 
   const inputCls = `w-full px-3.5 py-2.5 rounded-xl border text-sm min-h-[44px] ${
     dark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
@@ -3586,8 +3924,8 @@ const ProtaView: React.FC<{
           e.preventDefault();
           const tp = atps.find((a) => a.id === (atpId || atps[0]?.id));
           if (!tp) return;
-          onAdd({
-            id: uid('prota'),
+          const payload: ProtaItem = {
+            id: editingId || uid('prota'),
             subjectId: tp.subjectId,
             atpId: tp.id,
             fase: tp.fase,
@@ -3597,7 +3935,13 @@ const ProtaView: React.FC<{
             bulan,
             alokasiJp: jp,
             keterangan: '',
-          });
+          };
+          if (editingId) {
+            onUpdate(payload);
+          } else {
+            onAdd(payload);
+          }
+          resetForm();
         }}
         className={`p-5 rounded-2xl border grid grid-cols-1 md:grid-cols-5 gap-3 ${
           dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'
@@ -3620,8 +3964,13 @@ const ProtaView: React.FC<{
         <div className="flex gap-2">
           <input type="number" className={inputCls} value={jp} onChange={(e) => setJp(Number(e.target.value))} />
           <button type="submit" className="px-4 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm shrink-0">
-            + PROTA
+            {editingId ? 'Update' : '+ PROTA'}
           </button>
+          {editingId && (
+            <button type="button" onClick={resetForm} className="px-3 py-2.5 rounded-xl border text-xs font-semibold shrink-0">
+              Batal
+            </button>
+          )}
         </div>
       </form>
 
@@ -3646,9 +3995,25 @@ const ProtaView: React.FC<{
                   <td className="p-3.5">{p.bulan}</td>
                   <td className="p-3.5 font-bold">{p.alokasiJp} JP</td>
                   <td className="p-3.5 text-right">
-                    <button onClick={() => onDelete(p.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg">
-                      <Trash2 size={15} />
-                    </button>
+                    <div className="inline-flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingId(p.id);
+                          setAtpId(p.atpId);
+                          setSemester(p.semester);
+                          setBulan(p.bulan);
+                          setJp(p.alokasiJp);
+                        }}
+                        className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg"
+                        title="Edit PROTA"
+                      >
+                        <Edit3 size={15} />
+                      </button>
+                      <button type="button" onClick={() => onDelete(p.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg" title="Hapus">
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -3670,14 +4035,24 @@ const PromesView: React.FC<{
   settings: AppSettings;
   dark: boolean;
   onAdd: (p: PromesItem) => void;
+  onUpdate: (p: PromesItem) => void;
   onDelete: (id: string) => void;
   onOpenPrint: (title: string, content: React.ReactNode) => void;
-}> = ({ promes, protas, atps, settings, dark, onAdd, onDelete, onOpenPrint }) => {
+}> = ({ promes, protas, atps, settings, dark, onAdd, onUpdate, onDelete, onOpenPrint }) => {
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [atpId, setAtpId] = useState(atps[0]?.id || '');
   const [bulan, setBulan] = useState('Juli');
   const [mingguKe, setMingguKe] = useState(1);
   const [jp, setJp] = useState(6);
   const [jenisMinggu, setJenisMinggu] = useState<'Efektif' | 'Asesmen' | 'Tidak Efektif'>('Efektif');
+
+  const resetForm = () => {
+    setEditingId(null);
+    setBulan('Juli');
+    setMingguKe(1);
+    setJp(6);
+    setJenisMinggu('Efektif');
+  };
 
   const inputCls = `w-full px-3.5 py-2.5 rounded-xl border text-sm min-h-[44px] ${
     dark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
@@ -3729,8 +4104,8 @@ const PromesView: React.FC<{
           e.preventDefault();
           const tp = atps.find((a) => a.id === (atpId || atps[0]?.id));
           if (!tp) return;
-          onAdd({
-            id: uid('prm'),
+          const payload: PromesItem = {
+            id: editingId || uid('prm'),
             protaId: protas[0]?.id || '',
             subjectId: tp.subjectId,
             atpId: tp.id,
@@ -3740,7 +4115,13 @@ const PromesView: React.FC<{
             jp,
             jenisMinggu,
             keterangan: '',
-          });
+          };
+          if (editingId) {
+            onUpdate(payload);
+          } else {
+            onAdd(payload);
+          }
+          resetForm();
         }}
         className={`p-5 rounded-2xl border grid grid-cols-1 md:grid-cols-6 gap-3 ${
           dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'
@@ -3769,8 +4150,13 @@ const PromesView: React.FC<{
         <div className="flex gap-2">
           <input type="number" className={inputCls} value={jp} onChange={(e) => setJp(Number(e.target.value))} />
           <button type="submit" className="px-4 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm shrink-0">
-            +
+            {editingId ? 'Update' : '+'}
           </button>
+          {editingId && (
+            <button type="button" onClick={resetForm} className="px-3 py-2.5 rounded-xl border text-xs font-semibold shrink-0">
+              Batal
+            </button>
+          )}
         </div>
       </form>
 
@@ -3799,9 +4185,26 @@ const PromesView: React.FC<{
                   </td>
                   <td className="p-3.5 font-bold">{item.jp} JP</td>
                   <td className="p-3.5 text-right">
-                    <button onClick={() => onDelete(item.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg">
-                      <Trash2 size={15} />
-                    </button>
+                    <div className="inline-flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingId(item.id);
+                          setAtpId(item.atpId);
+                          setBulan(item.bulan);
+                          setMingguKe(item.mingguKe);
+                          setJp(item.jp);
+                          setJenisMinggu(item.jenisMinggu);
+                        }}
+                        className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg"
+                        title="Edit PROMES"
+                      >
+                        <Edit3 size={15} />
+                      </button>
+                      <button type="button" onClick={() => onDelete(item.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg" title="Hapus">
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -4172,9 +4575,10 @@ const JournalView: React.FC<{
   teacher: TeacherProfile;
   dark: boolean;
   onAdd: (j: TeachingJournal) => void;
+  onUpdate: (j: TeachingJournal) => void;
   onDelete: (id: string) => void;
   onOpenPrint: (title: string, content: React.ReactNode) => void;
-}> = ({ journals, classes, subjects, atps, dark, onAdd, onDelete, onOpenPrint }) => {
+}> = ({ journals, classes, subjects, atps, dark, onAdd, onUpdate, onDelete, onOpenPrint }) => {
   const [tanggal, setTanggal] = useState(todayISO());
   const [jamKe, setJamKe] = useState('1 - 6');
   const [classId, setClassId] = useState(classes[0]?.id || '');
@@ -4182,10 +4586,32 @@ const JournalView: React.FC<{
   const [materi, setMateri] = useState('');
   const [kegiatan, setKegiatan] = useState('');
   const [catatan, setCatatan] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const inputCls = `w-full px-3.5 py-2.5 rounded-xl border text-sm min-h-[44px] ${
     dark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
   }`;
+  const resetForm = () => {
+  setEditingId(null);
+  setTanggal(todayISO());
+  setJamKe('1 - 6');
+  setClassId(classes[0]?.id || '');
+  setSubjectId(subjects[0]?.id || '');
+  setMateri('');
+  setKegiatan('');
+  setCatatan('');
+};
+
+const handleEdit = (item: TeachingJournal) => {
+  setEditingId(item.id);
+  setTanggal(item.tanggal);
+  setJamKe(item.jamKe);
+  setClassId(item.classId);
+  setSubjectId(item.subjectId);
+  setMateri(item.materi);
+  setKegiatan(item.kegiatan);
+  setCatatan(item.catatan || '');
+};
 
   return (
     <div className="space-y-6">
@@ -4223,12 +4649,12 @@ const JournalView: React.FC<{
         </button>
       </div>
 
-      <form
+            <form
         onSubmit={(e) => {
           e.preventDefault();
           if (!materi.trim()) return;
-          onAdd({
-            id: uid('jrn'),
+          const payload: TeachingJournal = {
+            id: editingId || uid('jrn'),
             tanggal,
             jamKe,
             classId: classId || classes[0]?.id || '',
@@ -4240,10 +4666,14 @@ const JournalView: React.FC<{
             tidakHadir: 0,
             catatan,
             tindakLanjut: '',
-          });
-          setMateri('');
-          setKegiatan('');
-          setCatatan('');
+          };
+
+          if (editingId) {
+            onUpdate(payload);
+          } else {
+            onAdd(payload);
+          }
+          resetForm();
         }}
         className={`p-5 rounded-2xl border space-y-4 ${dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'}`}
       >
@@ -4281,12 +4711,18 @@ const JournalView: React.FC<{
           <label className="block text-[11px] font-semibold mb-1">Catatan Refleksi / Tindak Lanjut</label>
           <input className={inputCls} placeholder="Catatan kendala teknis atau tindak lanjut pertemuan berikutnya" value={catatan} onChange={(e) => setCatatan(e.target.value)} />
         </div>
-        <button type="submit" className="px-5 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm min-h-[44px]">
-          + Simpan Jurnal Mengajar
-        </button>
+        <div className="flex gap-2">
+    <button type="submit" className="px-5 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm min-h-[44px]">
+      {editingId ? 'Simpan Perubahan Jurnal' : '+ Simpan Jurnal Mengajar'}
+    </button>
+    {editingId && (
+      <button type="button" onClick={resetForm} className="px-4 py-2.5 rounded-xl border text-sm font-semibold min-h-[44px]">
+        Batal
+      </button>
+    )}
+  </div>
       </form>
-
-      <div className="space-y-3">
+          <div className="space-y-3">
         {journals.map((j) => (
           <div key={j.id} className={`p-4 rounded-2xl border flex items-start justify-between gap-4 ${dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'}`}>
             <div>
@@ -4297,9 +4733,19 @@ const JournalView: React.FC<{
               <p className="text-xs text-slate-500 mt-1">{j.kegiatan}</p>
               {j.catatan && <p className="text-xs text-amber-600 mt-1">Catatan: {j.catatan}</p>}
             </div>
-            <button onClick={() => onDelete(j.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg">
-              <Trash2 size={15} />
-            </button>
+           <div className="inline-flex items-center gap-1 shrink-0">
+    <button
+      type="button"
+      onClick={() => handleEdit(j)}
+      className="p-2 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg"
+      title="Edit Jurnal"
+    >
+      <Edit3 size={16} />
+    </button>
+    <button onClick={() => onDelete(j.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg">
+      <Trash2 size={15} />
+    </button>
+  </div>
           </div>
         ))}
       </div>
@@ -4629,18 +5075,36 @@ const AssessmentView: React.FC<{
   defaultKktp: number;
   dark: boolean;
   onAddAssessment: (a: Assessment) => void;
+  onUpdate: (a: Assessment) => void;
   onSaveGrades: (assessmentId: string, list: GradeRecord[]) => void;
   onDeleteAssessment: (id: string) => void;
-}> = ({ assessments, grades, classes, students, subjects, atps, defaultKktp, dark, onAddAssessment, onSaveGrades, onDeleteAssessment }) => {
+}> = ({ assessments, grades, classes, students, subjects, atps, defaultKktp, dark, onAddAssessment, onUpdate, onSaveGrades, onDeleteAssessment }) => {
   const [judul, setJudul] = useState('');
   const [jenis, setJenis] = useState<Assessment['jenis']>('Praktik Bengkel');
   const [classId, setClassId] = useState(classes[0]?.id || '');
   const [subjectId, setSubjectId] = useState(subjects[0]?.id || '');
   const [selectedAsmId, setSelectedAsmId] = useState<string>(assessments[0]?.id || '');
   const [scoreMap, setScoreMap] = useState<Record<string, number>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const activeAsm = assessments.find((a) => a.id === (selectedAsmId || assessments[0]?.id));
   const targetStudents = activeAsm ? students.filter((s) => s.classId === activeAsm.classId) : [];
+
+  const resetForm = () => {
+    setEditingId(null);
+    setJudul('');
+    setJenis('Praktik Bengkel');
+    setClassId(classes[0]?.id || '');
+    setSubjectId(subjects[0]?.id || '');
+  };
+
+  const handleEdit = (item: Assessment) => {
+    setEditingId(item.id);
+    setJudul(item.judul);
+    setJenis(item.jenis);
+    setClassId(item.classId);
+    setSubjectId(item.subjectId);
+  };
 
   useEffect(() => {
     if (!activeAsm) return;
@@ -4662,26 +5126,31 @@ const AssessmentView: React.FC<{
         onSubmit={(e) => {
           e.preventDefault();
           if (!judul.trim()) return;
-          const created: Assessment = {
-            id: uid('asm'),
+          const payload: Assessment = {
+            id: editingId || uid('asm'),
             judul,
             jenis,
             subjectId: subjectId || subjects[0]?.id || '',
             classId: classId || classes[0]?.id || '',
-            atpId: atps[0]?.id || '',
-            tanggal: todayISO(),
-            bobot: 30,
-            skorMaks: 100,
-            kktp: defaultKktp,
-            rubrikTsm: { persiapanAlat: 10, penerapanK3: 15, prosedurKerja: 20, alatUkur: 15, hasilPekerjaan: 20, efisiensiWaktu: 10, kerapianArea: 5, pelaporan: 5 },
+            atpId: activeAsm?.atpId || atps[0]?.id || '',
+            tanggal: activeAsm?.tanggal || todayISO(),
+            bobot: activeAsm?.bobot ?? 30,
+            skorMaks: activeAsm?.skorMaks ?? 100,
+            kktp: activeAsm?.kktp ?? defaultKktp,
+            rubrikTsm: activeAsm?.rubrikTsm || { persiapanAlat: 10, penerapanK3: 15, prosedurKerja: 20, alatUkur: 15, hasilPekerjaan: 20, efisiensiWaktu: 10, kerapianArea: 5, pelaporan: 5 },
           };
-          onAddAssessment(created);
-          setSelectedAsmId(created.id);
-          setJudul('');
+
+          if (editingId) {
+            onUpdate(payload);
+          } else {
+            onAddAssessment(payload);
+            setSelectedAsmId(payload.id);
+          }
+          resetForm();
         }}
         className={`p-5 rounded-2xl border grid grid-cols-1 md:grid-cols-5 gap-3 ${dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'}`}
       >
-        <input required className={`${inputCls} md:col-span-2`} placeholder="Judul Asesmen (cth: Uji PraktikTune Up Injeksi)" value={judul} onChange={(e) => setJudul(e.target.value)} />
+        <input required className={`${inputCls} md:col-span-2`} placeholder="Judul Asesmen (cth: Uji Praktik Tune Up Injeksi)" value={judul} onChange={(e) => setJudul(e.target.value)} />
         <select className={inputCls} value={jenis} onChange={(e) => setJenis(e.target.value as any)}>
           {['Praktik Bengkel', 'Formatif', 'Sumatif', 'Diagnostik', 'Proyek', 'Sikap Kerja'].map((j) => (
             <option key={j} value={j}>{j}</option>
@@ -4690,9 +5159,22 @@ const AssessmentView: React.FC<{
         <select className={inputCls} value={classId || classes[0]?.id || ''} onChange={(e) => setClassId(e.target.value)}>
           {classes.map((c) => <option key={c.id} value={c.id}>{c.namaKelas}</option>)}
         </select>
-        <button type="submit" className="px-4 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm min-h-[44px]">
-          + Buat Asesmen
-        </button>
+        <div className="flex gap-2">
+          <button type="submit" className="flex-1 px-4 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm min-h-[44px]">
+            {editingId ? 'Simpan Perubahan Asesmen' : '+ Buat Asesmen'}
+          </button>
+          {editingId && (
+            <button
+              type="button"
+              onClick={resetForm}
+              className={`px-3.5 py-2.5 rounded-xl border text-sm font-semibold min-h-[44px] ${
+                dark ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              Batal
+            </button>
+          )}
+        </div>
       </form>
 
       {assessments.length > 0 && (
@@ -4709,16 +5191,29 @@ const AssessmentView: React.FC<{
                 </option>
               ))}
             </select>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {activeAsm && (
-                <button
-                  onClick={() => onDeleteAssessment(activeAsm.id)}
-                  className="px-3.5 py-2.5 rounded-xl border border-rose-500/40 text-rose-600 text-xs font-bold"
-                >
-                  Hapus Asesmen
-                </button>
+                <div className="inline-flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleEdit(activeAsm)}
+                    className="p-2 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg inline-flex items-center gap-1.5 text-xs font-bold"
+                    title="Edit Asesmen"
+                  >
+                    <Edit3 size={15} />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDeleteAssessment(activeAsm.id)}
+                    className="px-3.5 py-2.5 rounded-xl border border-rose-500/40 text-rose-600 text-xs font-bold"
+                  >
+                    Hapus Asesmen
+                  </button>
+                </div>
               )}
               <button
+                type="button"
                 onClick={() => {
                   if (!activeAsm) return;
                   const list: GradeRecord[] = targetStudents.map((st) => ({
@@ -4877,12 +5372,30 @@ const FollowUpView: React.FC<{
   kktpDefault: number;
   dark: boolean;
   onAdd: (f: FollowUpRecord) => void;
+  onUpdate: (f: FollowUpRecord) => void;
   onDelete: (id: string) => void;
-}> = ({ followUps, students, assessments, grades, atps, dark, onAdd, onDelete }) => {
-  const [studentId, setStudentId] = useState(students[0]?.id || '');
+}> = ({ followUps, students, assessments, grades, atps, dark, onAdd, onUpdate, onDelete }) => {
+  const [studentId, setStudentId] = useState(students?.[0]?.id || '');
   const [jenis, setJenis] = useState<'Remedial' | 'Pengayaan'>('Remedial');
   const [program, setProgram] = useState('');
   const [nilaiAkhir, setNilaiAkhir] = useState(80);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const resetForm = () => {
+    setEditingId(null);
+    setStudentId(students?.[0]?.id || '');
+    setJenis('Remedial');
+    setProgram('');
+    setNilaiAkhir(80);
+  };
+
+  const handleEdit = (item: FollowUpRecord) => {
+    setEditingId(item.id);
+    setStudentId(item.studentId);
+    setJenis(item.jenis);
+    setProgram(item.program);
+    setNilaiAkhir(item.nilaiAkhir);
+  };
 
   const inputCls = `w-full px-3.5 py-2.5 rounded-xl border text-sm min-h-[44px] ${
     dark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
@@ -4893,26 +5406,34 @@ const FollowUpView: React.FC<{
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          const targetSt = studentId || students[0]?.id;
+          const targetSt = studentId || students?.[0]?.id;
           if (!targetSt || !program.trim()) return;
           const prevGrade = grades.find((g) => g.studentId === targetSt)?.nilai || 0;
-          onAdd({
-            id: uid('fu'),
+          const existingItem = editingId ? followUps.find((f) => f.id === editingId) : undefined;
+
+          const payload: FollowUpRecord = {
+            id: editingId || uid('fu'),
             studentId: targetSt,
-            assessmentId: assessments[0]?.id || '',
-            atpId: atps[0]?.id || '',
+            assessmentId: existingItem?.assessmentId || assessments?.[0]?.id || '',
+            atpId: existingItem?.atpId || atps?.[0]?.id || '',
             jenis,
-            nilaiAwal: prevGrade,
+            nilaiAwal: existingItem?.nilaiAwal ?? prevGrade,
             program,
-            tanggalPelaksanaan: todayISO(),
+            tanggalPelaksanaan: existingItem?.tanggalPelaksanaan || todayISO(),
             nilaiAkhir,
-            catatan: '',
-          });
-          setProgram('');
+            catatan: existingItem?.catatan || '',
+          };
+
+          if (editingId) {
+            onUpdate(payload);
+          } else {
+            onAdd(payload);
+          }
+          resetForm();
         }}
         className={`p-5 rounded-2xl border grid grid-cols-1 md:grid-cols-5 gap-3 ${dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'}`}
       >
-        <select className={inputCls} value={studentId || students[0]?.id || ''} onChange={(e) => setStudentId(e.target.value)}>
+        <select className={inputCls} value={studentId || students?.[0]?.id || ''} onChange={(e) => setStudentId(e.target.value)}>
           {students.map((s) => <option key={s.id} value={s.id}>{s.namaLengkap}</option>)}
         </select>
         <select className={inputCls} value={jenis} onChange={(e) => setJenis(e.target.value as any)}>
@@ -4923,8 +5444,19 @@ const FollowUpView: React.FC<{
         <div className="flex gap-2">
           <input type="number" className={inputCls} value={nilaiAkhir} onChange={(e) => setNilaiAkhir(Number(e.target.value))} title="Nilai Akhir" />
           <button type="submit" className="px-4 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm shrink-0">
-            + Simpan
+            {editingId ? 'Simpan Perubahan' : '+ Simpan Program'}
           </button>
+          {editingId && (
+            <button
+              type="button"
+              onClick={resetForm}
+              className={`px-3 py-2.5 rounded-xl border text-sm font-semibold shrink-0 ${
+                dark ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              Batal
+            </button>
+          )}
         </div>
       </form>
 
@@ -4932,7 +5464,16 @@ const FollowUpView: React.FC<{
         {followUps.map((f) => {
           const st = students.find((s) => s.id === f.studentId);
           return (
-            <div key={f.id} className={`p-4 rounded-2xl border flex items-center justify-between gap-4 ${dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'}`}>
+            <div
+              key={f.id}
+              className={`p-4 rounded-2xl border flex items-center justify-between gap-4 transition-colors ${
+                editingId === f.id
+                  ? 'border-[#178C8C] ring-1 ring-[#178C8C]'
+                  : dark
+                  ? 'bg-[#13203B] border-slate-800'
+                  : 'bg-white border-slate-200'
+              }`}
+            >
               <div>
                 <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${f.jenis === 'Remedial' ? 'bg-amber-100 text-amber-800' : 'bg-teal-100 text-teal-800'}`}>
                   {f.jenis} • {f.tanggalPelaksanaan}
@@ -4940,9 +5481,24 @@ const FollowUpView: React.FC<{
                 <h4 className="font-bold text-sm mt-1">{st?.namaLengkap || 'Peserta Didik'} (Nilai Akhir: {f.nilaiAkhir})</h4>
                 <p className="text-xs text-slate-500 mt-0.5">{f.program}</p>
               </div>
-              <button onClick={() => onDelete(f.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg">
-                <Trash2 size={15} />
-              </button>
+              <div className="inline-flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleEdit(f)}
+                  className="p-2 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg"
+                  title="Edit Data"
+                >
+                  <Edit3 size={15} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDelete(f.id)}
+                  className="p-2 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg"
+                  title="Hapus Data"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
             </div>
           );
         })}
