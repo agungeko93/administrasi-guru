@@ -1147,7 +1147,7 @@ export default function App() {
       return {
         ...DEFAULT_SETTINGS,
         ...parsed,
-        appsScriptUrl: parsed.appsScriptUrl || APP_CONFIG.defaultAppsScriptUrl,
+        appsScriptUrl: parsed.appsScriptUrl || '',
       };
     } catch {
       return DEFAULT_SETTINGS;
