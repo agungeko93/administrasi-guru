@@ -11,12 +11,14 @@ import {
 } from 'lucide-react';
 
 // ============================================================================
-// ============================================================================
-// 1. KONFIGURASI TERPUSAT (APP CONFIG — TANPA KREDENSIAL & URL SENSITIF TERTANAM)
+// 1. KONFIGURASI TERPUSAT (APP CONFIG)
 // ============================================================================
 const APP_CONFIG = {
   appName: 'Digital Personal Workspace',
   appSubtitle: 'Personal Teacher Workspace',
+  defaultAppsScriptUrl:
+    'https://script.google.com/macros/s/AKfycbxFr6GbdLzPZ5j-5xgL5tchv1PIGJRjF1mLtET36JmNniP4uyfjR3ZNfi6EDChJxqSFDQ/exec',
+  authEmail: 'agungekosetiono@smkn1gombong.sch.id',
   schoolDefault: {
     namaSekolah: 'SEKOLAH MENENGAH KEJURUAN NEGERI 1 GOMBONG',
     namaSekolahSingkat: 'SMK NEGERI 1 GOMBONG',
@@ -40,35 +42,25 @@ const APP_CONFIG = {
   storageKey: 'mototeach_workspace_v1_data',
   configKey: 'mototeach_workspace_v1_config',
   authSessionKey: 'mototeach_workspace_v1_session',
-  authLocalAccountKey: 'mototeach_workspace_v1_local_auth',
+  authCustomHashKey: 'mototeach_workspace_v1_pwd_hash',
 };
 
-// Fungsi hashing SHA-256 dengan salt lokal (Web Crypto API)
-async function hashPasswordWithSalt(password: string, salt: string): Promise<string> {
-  const material = `${salt}:${password}`;
+// Fungsi hashing SHA-256 satu arah menggunakan Web Crypto API
+async function sha256Hex(text: string): Promise<string> {
   if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
     const encoder = new TextEncoder();
-    const data = encoder.encode(material);
+    const data = encoder.encode(text);
     const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
     return Array.from(new Uint8Array(hashBuffer))
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
   }
   let h = 0x811c9dc5;
-  for (let i = 0; i < material.length; i++) {
-    h ^= material.charCodeAt(i);
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
     h = Math.imul(h, 0x01000193);
   }
   return ('00000000' + (h >>> 0).toString(16)).slice(-8);
-}
-
-function generateSalt(): string {
-  if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
-    const arr = new Uint8Array(16);
-    window.crypto.getRandomValues(arr);
-    return Array.from(arr).map((b) => b.toString(16).padStart(2, '0')).join('');
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 // ============================================================================
@@ -379,7 +371,7 @@ const uid = (prefix = 'id') =>
 const todayISO = () => new Date().toISOString().split('T')[0];
 
 const DEFAULT_SETTINGS: AppSettings = {
-  appsScriptUrl: '',
+  appsScriptUrl: APP_CONFIG.defaultAppsScriptUrl,
   apiToken: '',
   tahunAjaran: '2026/2027',
   semester: 'Ganjil',
@@ -756,10 +748,7 @@ const createDemoDatabase = (): WorkspaceDatabase => {
 class MotoTeachApiService {
   private inflightWrites = new Set<string>();
 
-  async testConnection(
-    url: string,
-    token?: string
-  ): Promise<{ ok: boolean; message: string; latencyMs: number }> {
+  async testConnection(url: string): Promise<{ ok: boolean; message: string; latencyMs: number }> {
     if (!url || !url.trim()) {
       return { ok: false, message: 'URL Google Apps Script belum diisi.', latencyMs: 0 };
     }
@@ -767,26 +756,7 @@ class MotoTeachApiService {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10000);
-
-      // Jika token diisi, uji autentikasi POST langsung ke backend
-      if (token && token.trim()) {
-        const res = await fetch(url.trim(), {
-          method: 'POST',
-          mode: 'cors',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: 'verifyAuth', token: token.trim() }),
-          signal: controller.signal,
-        });
-        clearTimeout(timeout);
-        const latencyMs = Math.round(performance.now() - start);
-        const json = await res.json();
-        if (json && json.success) {
-          return { ok: true, message: 'Terhubung & API Token terverifikasi!', latencyMs };
-        }
-        return { ok: false, message: json?.message || 'Autentikasi token ditolak server.', latencyMs };
-      }
-
-      const target = `${url.trim()}${url.includes('?') ? '&' : '?'}action=health&_ts=${Date.now()}`;
+      const target = `${url}${url.includes('?') ? '&' : '?'}action=health&_ts=${Date.now()}`;
       const res = await fetch(target, { method: 'GET', mode: 'cors', signal: controller.signal });
       clearTimeout(timeout);
       const latencyMs = Math.round(performance.now() - start);
@@ -795,11 +765,7 @@ class MotoTeachApiService {
       }
       const json = await res.json();
       if (json && json.success) {
-        return {
-          ok: true,
-          message: 'Endpoint aktif (Isi API Token untuk mengaktifkan sinkronisasi terproteksi)',
-          latencyMs,
-        };
+        return { ok: true, message: json.message || 'Terhubung ke Digital Personal Workspace API', latencyMs };
       }
       return { ok: false, message: json?.message || 'Respons API tidak valid', latencyMs };
     } catch (err: any) {
@@ -815,43 +781,33 @@ class MotoTeachApiService {
     }
   }
 
-  async pullDatabase(
-    url: string,
-    token?: string
-  ): Promise<{ success: boolean; isEmpty?: boolean; data?: WorkspaceDatabase; message: string }> {
-    if (!url || !url.trim()) return { success: false, message: 'URL Apps Script kosong' };
-    if (!token || !token.trim()) return { success: false, message: 'API Token belum diisi di Pengaturan' };
-
+  async pullDatabase(url: string, token?: string): Promise<{ success: boolean; data?: WorkspaceDatabase; message: string }> {
+    if (!url) return { success: false, message: 'URL Apps Script kosong' };
     let attempt = 0;
     while (attempt < 2) {
       attempt++;
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 15000);
-        // Token dikirim melalui POST body, bukan query string URL
-        const res = await fetch(url.trim(), {
-          method: 'POST',
+        const query = new URLSearchParams({
+          action: 'pullAll',
+          token: token || '',
+          _ts: String(Date.now()),
+        });
+        const res = await fetch(`${url}?${query.toString()}`, {
+          method: 'GET',
           mode: 'cors',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({
-            action: 'pullAll',
-            token: token.trim(),
-            timestamp: new Date().toISOString(),
-          }),
           signal: controller.signal,
         });
         clearTimeout(timeout);
         const json = await res.json();
-        if (json?.success) {
-          if (json.isEmpty || !json.data) {
-            return { success: true, isEmpty: true, message: json.message || 'Database cloud masih kosong' };
-          }
-          return { success: true, isEmpty: false, data: json.data, message: 'Sinkronisasi dari Google Sheets berhasil' };
+        if (json?.success && json?.data) {
+          return { success: true, data: json.data, message: 'Sinkronisasi dari Google Sheets berhasil' };
         }
-        return { success: false, message: json?.message || 'Gagal menarik data dari Google Sheets' };
+        return { success: false, message: json?.message || 'Data belum tersedia di Google Sheets' };
       } catch {
         if (attempt >= 2) {
-          return { success: false, message: 'Gagal menghubungi server Google Sheets' };
+          return { success: false, message: 'Gagal menarik data dari Google Sheets' };
         }
         await new Promise((r) => setTimeout(r, 1000 * attempt));
       }
@@ -864,9 +820,7 @@ class MotoTeachApiService {
     db: WorkspaceDatabase,
     token?: string
   ): Promise<{ success: boolean; message: string }> {
-    if (!url || !url.trim()) return { success: false, message: 'Tersimpan lokal (Cloud belum dikonfigurasi)' };
-    if (!token || !token.trim()) return { success: false, message: 'Tersimpan lokal (API Token belum diisi)' };
-
+    if (!url) return { success: false, message: 'Tersimpan lokal (Cloud belum dikonfigurasi)' };
     const lockKey = 'pushAll';
     if (this.inflightWrites.has(lockKey)) {
       return { success: false, message: 'Proses sinkronisasi sebelumnya masih berjalan' };
@@ -875,13 +829,13 @@ class MotoTeachApiService {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 18000);
-      const res = await fetch(url.trim(), {
+      const res = await fetch(url, {
         method: 'POST',
         mode: 'cors',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
           action: 'syncAll',
-          token: token.trim(),
+          token: token || '',
           payload: db,
           timestamp: new Date().toISOString(),
         }),
@@ -1147,7 +1101,7 @@ export default function App() {
       return {
         ...DEFAULT_SETTINGS,
         ...parsed,
-        appsScriptUrl: parsed.appsScriptUrl || '',
+        appsScriptUrl: parsed.appsScriptUrl || APP_CONFIG.defaultAppsScriptUrl,
       };
     } catch {
       return DEFAULT_SETTINGS;
@@ -1735,8 +1689,8 @@ export default function App() {
               setSettings(next);
               showToast('success', 'Pengaturan workspace disimpan');
             }}
-            onTestConnection={async (url, token) => {
-              const res = await apiService.testConnection(url, token);
+            onTestConnection={async (url) => {
+              const res = await apiService.testConnection(url);
               if (res.ok) {
                 setSyncStatus('connected');
                 showToast('success', `${res.message} (${res.latencyMs} ms)`);
@@ -1796,14 +1750,7 @@ export default function App() {
       <LoginPage
         dark={dark}
         onToggleDark={() => setSettings((s) => ({ ...s, darkMode: !s.darkMode }))}
-        onLoginSuccess={(cloudConfig) => {
-          if (cloudConfig) {
-            setSettings((s) => ({
-              ...s,
-              appsScriptUrl: cloudConfig.appsScriptUrl,
-              apiToken: cloudConfig.apiToken,
-            }));
-          }
+        onLoginSuccess={() => {
           try {
             sessionStorage.setItem(APP_CONFIG.authSessionKey, 'authenticated');
           } catch {}
@@ -2151,107 +2098,45 @@ export default function App() {
 // ============================================================================
 // KOMPONEN LOGIN PAGE (AMAN DENGAN HASH SHA-256)
 // ============================================================================
-interface LocalAuthRecord {
-  email: string;
-  salt: string;
-  passwordHash: string;
-}
-
 const LoginPage: React.FC<{
   dark: boolean;
   onToggleDark: () => void;
-  onLoginSuccess: (cloudConfig?: { appsScriptUrl: string; apiToken: string }) => void;
+  onLoginSuccess: () => void;
 }> = ({ dark, onToggleDark, onLoginSuccess }) => {
-  const existingLocalAuth: LocalAuthRecord | null = useMemo(() => {
-    try {
-      const raw = localStorage.getItem(APP_CONFIG.authLocalAccountKey);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  }, []);
-
-  const [authMode, setAuthMode] = useState<'local' | 'cloud'>(existingLocalAuth ? 'local' : 'cloud');
-  const [email, setEmail] = useState(existingLocalAuth?.email || '');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [scriptUrl, setScriptUrl] = useState('');
-  const [apiToken, setApiToken] = useState('');
   const [showPwd, setShowPwd] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleLocalSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
     setLoading(true);
     try {
       const normalizedEmail = email.trim().toLowerCase();
-      if (!normalizedEmail) {
-        setErrorMsg('Email guru wajib diisi.');
+      if (normalizedEmail !== APP_CONFIG.authEmail.toLowerCase()) {
+        setErrorMsg('Email pengguna tidak terdaftar pada MotoTeach Workspace.');
+        setLoading(false);
         return;
       }
 
-      if (!existingLocalAuth) {
-        if (password.length < 8) {
-          setErrorMsg('Kata sandi baru minimal 8 karakter.');
-          return;
-        }
-        if (password !== confirmPassword) {
-          setErrorMsg('Konfirmasi kata sandi tidak cocok.');
-          return;
-        }
-        const salt = generateSalt();
-        const passwordHash = await hashPasswordWithSalt(password, salt);
-        localStorage.setItem(
-          APP_CONFIG.authLocalAccountKey,
-          JSON.stringify({ email: normalizedEmail, salt, passwordHash })
-        );
-        onLoginSuccess();
-        return;
-      }
+      const inputHash = await sha256Hex(password);
+      const defaultExpectedHash = await sha256Hex('20330330Smk!');
+      const customSavedHash = localStorage.getItem(APP_CONFIG.authCustomHashKey);
+      const validHash = customSavedHash || defaultExpectedHash;
 
-      if (normalizedEmail !== existingLocalAuth.email) {
-        setErrorMsg('Email tidak cocok dengan akun lokal yang terdaftar di perangkat ini.');
-        return;
-      }
-
-      const candidateHash = await hashPasswordWithSalt(password, existingLocalAuth.salt);
-      if (candidateHash === existingLocalAuth.passwordHash) {
+      if (inputHash === validHash) {
         onLoginSuccess();
       } else {
-        setErrorMsg('Kata sandi salah. Silakan periksa kembali.');
+        setErrorMsg('Kata sandi yang Anda masukkan salah. Silakan periksa kembali.');
       }
     } catch {
-      setErrorMsg('Terjadi kendala saat memverifikasi kredensial.');
+      setErrorMsg('Terjadi kendala verifikasi keamanan.');
     } finally {
       setLoading(false);
     }
   };
-
-  const handleCloudTokenLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg('');
-    if (!scriptUrl.trim() || !apiToken.trim()) {
-      setErrorMsg('URL Web App Apps Script dan API Token wajib diisi.');
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await apiService.testConnection(scriptUrl.trim(), apiToken.trim());
-      if (res.ok) {
-        onLoginSuccess({ appsScriptUrl: scriptUrl.trim(), apiToken: apiToken.trim() });
-      } else {
-        setErrorMsg(res.message);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const inputCls = `w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm min-h-[46px] ${
-    dark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
-  }`;
 
   return (
     <div
@@ -2260,7 +2145,7 @@ const LoginPage: React.FC<{
       }`}
     >
       <div
-        className={`w-full max-w-md rounded-3xl p-7 sm:p-8 shadow-xl border space-y-5 ${
+        className={`w-full max-w-md rounded-3xl p-7 sm:p-8 shadow-xl border space-y-6 ${
           dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'
         }`}
       >
@@ -2286,25 +2171,11 @@ const LoginPage: React.FC<{
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-900">
-          <button
-            type="button"
-            onClick={() => { setAuthMode('cloud'); setErrorMsg(''); }}
-            className={`py-2 rounded-lg text-xs font-bold transition-colors ${
-              authMode === 'cloud' ? 'bg-[#173B70] text-white' : 'text-slate-600 dark:text-slate-400'
-            }`}
-          >
-            Masuk via Cloud Token
-          </button>
-          <button
-            type="button"
-            onClick={() => { setAuthMode('local'); setErrorMsg(''); }}
-            className={`py-2 rounded-lg text-xs font-bold transition-colors ${
-              authMode === 'local' ? 'bg-[#173B70] text-white' : 'text-slate-600 dark:text-slate-400'
-            }`}
-          >
-            {existingLocalAuth ? 'Masuk Akun Lokal' : 'Aktivasi Lokal Baru'}
-          </button>
+        <div className="space-y-1">
+          <h2 className="text-xl font-bold">Masuk ke Ruang Kerja Guru</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Silakan masuk menggunakan akun guru terdaftar untuk mengakses perangkat ajar, presensi, dan penilaian peserta didik.
+          </p>
         </div>
 
         {errorMsg && (
@@ -2314,128 +2185,65 @@ const LoginPage: React.FC<{
           </div>
         )}
 
-        {authMode === 'cloud' ? (
-          <form onSubmit={handleCloudTokenLogin} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold mb-1.5">URL Web App Google Apps Script</label>
-              <div className="relative">
-                <Cloud size={16} className="absolute left-3.5 top-3.5 text-slate-400" />
-                <input
-                  type="url"
-                  required
-                  value={scriptUrl}
-                  onChange={(e) => setScriptUrl(e.target.value)}
-                  placeholder="https://script.google.com/macros/s/.../exec"
-                  className={inputCls}
-                />
-              </div>
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold mb-1.5">Email Guru</label>
+            <div className="relative">
+              <User size={16} className="absolute left-3.5 top-3.5 text-slate-400" />
+              <input
+                type="email"
+                required
+                autoComplete="username"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="nama@smkn1gombong.sch.id"
+                className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm min-h-[46px] ${
+                  dark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                }`}
+              />
             </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1.5">API Token Server</label>
-              <div className="relative">
-                <KeyRound size={16} className="absolute left-3.5 top-3.5 text-slate-400" />
-                <input
-                  type={showPwd ? 'text' : 'password'}
-                  required
-                  value={apiToken}
-                  onChange={(e) => setApiToken(e.target.value)}
-                  placeholder="Token dari Script Properties"
-                  className={`${inputCls} pr-11`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPwd(!showPwd)}
-                  className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
-                >
-                  {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Diverifikasi langsung oleh backend Google Apps Script tanpa menyimpan kredensial di kode publik.
-              </p>
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 rounded-xl bg-[#173B70] hover:bg-blue-900 text-white font-bold text-sm shadow-md transition-colors min-h-[46px]"
-            >
-              {loading ? 'Memverifikasi ke Server...' : 'Hubungkan & Masuk'}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleLocalSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold mb-1.5">Email Guru</label>
-              <div className="relative">
-                <User size={16} className="absolute left-3.5 top-3.5 text-slate-400" />
-                <input
-                  type="email"
-                  required
-                  autoComplete="username"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="nama@smkn1gombong.sch.id"
-                  className={inputCls}
-                />
-              </div>
-            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Masukkan alamat email dinas guru yang terdaftar.</p>
+          </div>
 
-            <div>
-              <label className="block text-xs font-semibold mb-1.5">
-                {existingLocalAuth ? 'Kata Sandi' : 'Buat Kata Sandi Baru (Min. 8 Karakter)'}
-              </label>
-              <div className="relative">
-                <Lock size={16} className="absolute left-3.5 top-3.5 text-slate-400" />
-                <input
-                  type={showPwd ? 'text' : 'password'}
-                  required
-                  autoComplete={existingLocalAuth ? 'current-password' : 'new-password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
-                  className={`${inputCls} pr-11`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPwd(!showPwd)}
-                  className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
-                >
-                  {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1.5">Kata Sandi (Password)</label>
+            <div className="relative">
+              <Lock size={16} className="absolute left-3.5 top-3.5 text-slate-400" />
+              <input
+                type={showPwd ? 'text' : 'password'}
+                required
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••••••"
+                className={`w-full pl-10 pr-11 py-2.5 rounded-xl border text-sm min-h-[46px] ${
+                  dark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                }`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd(!showPwd)}
+                className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+                title={showPwd ? 'Sembunyikan' : 'Tampilkan'}
+              >
+                {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
+            <p className="text-[11px] text-slate-400 mt-1">Password dapat diubah kapan saja melalui menu Pengaturan.</p>
+          </div>
 
-            {!existingLocalAuth && (
-              <div>
-                <label className="block text-xs font-semibold mb-1.5">Konfirmasi Kata Sandi</label>
-                <div className="relative">
-                  <Lock size={16} className="absolute left-3.5 top-3.5 text-slate-400" />
-                  <input
-                    type={showPwd ? 'text' : 'password'}
-                    required
-                    autoComplete="new-password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Ulangi kata sandi"
-                    className={inputCls}
-                  />
-                </div>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 rounded-xl bg-[#173B70] hover:bg-blue-900 text-white font-bold text-sm shadow-md transition-colors min-h-[46px]"
-            >
-              {loading ? 'Memverifikasi...' : existingLocalAuth ? 'Masuk ke Workspace' : 'Simpan Akun & Masuk'}
-            </button>
-          </form>
-        )}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 rounded-xl bg-[#173B70] hover:bg-blue-900 text-white font-bold text-sm shadow-md transition-colors min-h-[46px]"
+          >
+            {loading ? 'Memverifikasi...' : 'Masuk ke Workspace'}
+          </button>
+        </form>
 
         <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
           <span className="flex items-center gap-1">
-            <ShieldCheck size={14} className="text-[#178C8C]" /> Proteksi Token Server & Hash Lokal
+            <ShieldCheck size={14} className="text-[#178C8C]" /> Proteksi Lokal & Cloud Sheets
           </span>
           <span>STEMSAGO TSM</span>
         </div>
@@ -5709,7 +5517,7 @@ const SettingsBackupView: React.FC<{
   syncStatus: string;
   lastSyncTime: string;
   onUpdateSettings: (s: AppSettings) => void;
-  onTestConnection: (url: string, token?: string) => void;
+  onTestConnection: (url: string) => void;
   onSyncNow: () => void;
   onPullFromCloud: () => void;
   onRestoreDatabase: (db: WorkspaceDatabase) => void;
@@ -5726,8 +5534,6 @@ const SettingsBackupView: React.FC<{
   onResetLocal,
 }) => {
   const [urlInput, setUrlInput] = useState(settings.appsScriptUrl);
-  const [tokenInput, setTokenInput] = useState(settings.apiToken || '');
-  const [showToken, setShowToken] = useState(false);
   const [tahun, setTahun] = useState(settings.tahunAjaran);
   const [semester, setSemester] = useState<'Ganjil' | 'Genap'>(settings.semester);
 
@@ -5737,15 +5543,6 @@ const SettingsBackupView: React.FC<{
   const [pwdStatus, setPwdStatus] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
-
-  const localAuthAccount: LocalAuthRecord | null = useMemo(() => {
-    try {
-      const raw = localStorage.getItem(APP_CONFIG.authLocalAccountKey);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  }, [pwdStatus]);
 
   const dark = settings.darkMode;
   const inputCls = `w-full px-3.5 py-2.5 rounded-xl border text-sm min-h-[44px] ${
@@ -5763,35 +5560,21 @@ const SettingsBackupView: React.FC<{
       setPwdStatus({ type: 'err', text: 'Konfirmasi kata sandi baru tidak cocok.' });
       return;
     }
+    const oldHash = await sha256Hex(oldPwd);
+    const defaultHash = await sha256Hex('20330330Smk!');
+    const currentValidHash = localStorage.getItem(APP_CONFIG.authCustomHashKey) || defaultHash;
 
-    if (!localAuthAccount) {
-      setPwdStatus({
-        type: 'err',
-        text: 'Akun lokal belum diaktifkan di perangkat ini. Silakan logout lalu aktifkan melalui tab "Aktivasi Lokal Baru".',
-      });
-      return;
-    }
-
-    const oldHash = await hashPasswordWithSalt(oldPwd, localAuthAccount.salt);
-    if (oldHash !== localAuthAccount.passwordHash) {
+    if (oldHash !== currentValidHash) {
       setPwdStatus({ type: 'err', text: 'Kata sandi lama yang Anda masukkan salah.' });
       return;
     }
 
-    const newSalt = generateSalt();
-    const nextHash = await hashPasswordWithSalt(newPwd, newSalt);
-    localStorage.setItem(
-      APP_CONFIG.authLocalAccountKey,
-      JSON.stringify({
-        email: localAuthAccount.email,
-        salt: newSalt,
-        passwordHash: nextHash,
-      })
-    );
+    const nextHash = await sha256Hex(newPwd);
+    localStorage.setItem(APP_CONFIG.authCustomHashKey, nextHash);
     setOldPwd('');
     setNewPwd('');
     setConfirmPwd('');
-    setPwdStatus({ type: 'ok', text: 'Kata sandi lokal berhasil diperbarui!' });
+    setPwdStatus({ type: 'ok', text: 'Kata sandi berhasil diperbarui!' });
   };
 
   const handleDownloadBackup = () => {
@@ -5827,18 +5610,10 @@ const SettingsBackupView: React.FC<{
       >
         <div className="flex items-center gap-2">
           <KeyRound size={18} className="text-[#178C8C]" />
-          <h3 className="font-bold text-base">Keamanan Akun Lokal & Ubah Kata Sandi</h3>
+          <h3 className="font-bold text-base">Keamanan Akun & Ubah Kata Sandi</h3>
         </div>
         <p className="text-xs text-slate-500">
-          {localAuthAccount ? (
-            <>
-              Akun lokal perangkat ini: <strong>{localAuthAccount.email}</strong>. Kata sandi disimpan dalam bentuk hash SHA-256 dengan salt unik.
-            </>
-          ) : (
-            <>
-              Anda masuk menggunakan <strong>Cloud API Token</strong>. Akun lokal perangkat belum diaktifkan.
-            </>
-          )}
+          Akun aktif: <strong>{APP_CONFIG.authEmail}</strong>. Kata sandi disimpan dalam bentuk hash kriptografi SHA-256.
         </p>
 
         {pwdStatus && (
@@ -5875,7 +5650,7 @@ const SettingsBackupView: React.FC<{
       <div className={`p-6 rounded-2xl border space-y-4 ${dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'}`}>
         <h3 className="font-bold text-base">Koneksi Backend Google Apps Script & Tahun Ajaran</h3>
         <p className="text-xs text-slate-500">
-          Masukkan URL Web App Google Apps Script dan API Token yang terdaftar pada Script Properties untuk mengaktifkan sinkronisasi terproteksi.
+          URL Web App Anda sudah tertanam secara bawaan dan otomatis melakukan sinkronisasi setiap kali Anda membuka aplikasi maupun menyimpan data.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
@@ -5886,26 +5661,6 @@ const SettingsBackupView: React.FC<{
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
             />
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-xs font-semibold mb-1">API Token Server (MOTOTEACH_API_TOKEN)</label>
-            <div className="relative">
-              <input
-                type={showToken ? 'text' : 'password'}
-                className={`${inputCls} pr-11`}
-                placeholder="Masukkan API Token rahasia dari Script Properties"
-                value={tokenInput}
-                onChange={(e) => setTokenInput(e.target.value)}
-              />
-              <button
-                type="button"
-                onClick={() => setShowToken(!showToken)}
-                className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
-                title={showToken ? 'Sembunyikan Token' : 'Tampilkan Token'}
-              >
-                {showToken ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
           </div>
           <div>
             <label className="block text-xs font-semibold mb-1">Tahun Ajaran Aktif</label>
@@ -5922,24 +5677,16 @@ const SettingsBackupView: React.FC<{
 
         <div className="flex flex-wrap gap-3 pt-2">
           <button
-            onClick={() =>
-              onUpdateSettings({
-                ...settings,
-                appsScriptUrl: urlInput.trim(),
-                apiToken: tokenInput.trim(),
-                tahunAjaran: tahun,
-                semester,
-              })
-            }
+            onClick={() => onUpdateSettings({ ...settings, appsScriptUrl: urlInput.trim(), tahunAjaran: tahun, semester })}
             className="px-5 py-2.5 rounded-xl bg-[#173B70] text-white text-xs font-bold min-h-[44px]"
           >
             Simpan Konfigurasi
           </button>
           <button
-            onClick={() => onTestConnection(urlInput.trim(), tokenInput.trim())}
+            onClick={() => onTestConnection(urlInput.trim())}
             className="px-4 py-2.5 rounded-xl border text-xs font-bold min-h-[44px]"
           >
-            Test Koneksi & Token
+            Test Koneksi API
           </button>
           <button
             onClick={onSyncNow}
@@ -5984,6 +5731,7 @@ const SettingsBackupView: React.FC<{
     </div>
   );
 };
+
 // --- 19. PANDUAN INSTALASI AWAM & SALIN KODE APPS SCRIPT ---
 const SetupGuideView: React.FC<{ dark: boolean; onCopySuccess: (label: string) => void }> = ({ dark, onCopySuccess }) => {
   const [copied, setCopied] = useState(false);
