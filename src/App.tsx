@@ -17,7 +17,7 @@ const APP_CONFIG = {
   appName: 'Digital Personal Workspace',
   appSubtitle: 'Personal Teacher Workspace',
   defaultAppsScriptUrl:
-    'https://script.google.com/macros/s/AKfycbxFr6GbdLzPZ5j-5xgL5tchv1PIGJRjF1mLtET36JmNniP4uyfjR3ZNfi6EDChJxqSFDQ/exec',
+    'https://script.google.com/macros/s/AKfycby0Fkne3fjXNGysL5tq4hRNSUO6omzKHu-7MNqeeqnAJ62ii6JbHW2sFDuHG22aLmneWQ/exec',
   authEmail: 'agungekosetiono@smkn1gombong.sch.id',
   schoolDefault: {
     namaSekolah: 'SEKOLAH MENENGAH KEJURUAN NEGERI 1 GOMBONG',
@@ -28,7 +28,7 @@ const APP_CONFIG = {
     alamat: 'Jalan Wilis Nomor 15 Wero, Gombong, Kebumen Kode Pos 54416',
     telepon: '0287-472828',
     faksimile: '0287-472828',
-    email: 'smkn1gombong@gmail.com',
+    email: 'jaya@smkn1gombong.sch.id',
     website: 'www.smkn1gombong.sch.id',
     logoJatengUrl: 'https://raw.githubusercontent.com/agungeko93/administrasi-guru/main/Logo%20Provinsi%20Jawa%20tengah.png',
     logoUrl: 'https://raw.githubusercontent.com/agungeko93/administrasi-guru/main/Logo_Stemsago.png',
