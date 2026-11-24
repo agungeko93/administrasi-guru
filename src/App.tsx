@@ -18,7 +18,6 @@ const APP_CONFIG = {
   appSubtitle: 'Personal Teacher Workspace',
   defaultAppsScriptUrl:
     'https://script.google.com/macros/s/AKfycby0Fkne3fjXNGysL5tq4hRNSUO6omzKHu-7MNqeeqnAJ62ii6JbHW2sFDuHG22aLmneWQ/exec',
-  authEmail: 'agungekosetiono@smkn1gombong.sch.id',
   schoolDefault: {
     namaSekolah: 'SEKOLAH MENENGAH KEJURUAN NEGERI 1 GOMBONG',
     namaSekolahSingkat: 'SMK NEGERI 1 GOMBONG',
@@ -41,36 +40,18 @@ const APP_CONFIG = {
   currency: 'IDR',
   storageKey: 'mototeach_workspace_v1_data',
   configKey: 'mototeach_workspace_v1_config',
-  authSessionKey: 'mototeach_workspace_v1_session',
-  authCustomHashKey: 'mototeach_workspace_v1_pwd_hash',
+  authStoreKey: 'mototeach_workspace_v2_auth',
+  // Kunci lama (login lokal v1) yang dibersihkan otomatis dari browser
+  legacyKeys: ['mototeach_workspace_v1_session', 'mototeach_workspace_v1_pwd_hash'],
   cloudVersionKey: 'mototeach_workspace_v1_cloud_version',
   dirtyKey: 'mototeach_workspace_v1_dirty',
 };
-
-// Fungsi hashing SHA-256 satu arah menggunakan Web Crypto API
-async function sha256Hex(text: string): Promise<string> {
-  if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(text);
-    const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
-    return Array.from(new Uint8Array(hashBuffer))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
-  }
-  let h = 0x811c9dc5;
-  for (let i = 0; i < text.length; i++) {
-    h ^= text.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return ('00000000' + (h >>> 0).toString(16)).slice(-8);
-}
 
 // ============================================================================
 // 2. DEFINISI TIPE DATA (TYPESCRIPT INTERFACES)
 // ============================================================================
 interface AppSettings {
   appsScriptUrl: string;
-  apiToken: string;
   tahunAjaran: string;
   semester: 'Ganjil' | 'Genap';
   darkMode: boolean;
@@ -374,7 +355,6 @@ const todayISO = () => new Date().toISOString().split('T')[0];
 
 const DEFAULT_SETTINGS: AppSettings = {
   appsScriptUrl: APP_CONFIG.defaultAppsScriptUrl,
-  apiToken: '',
   tahunAjaran: '2026/2027',
   semester: 'Ganjil',
   darkMode: false,
@@ -388,16 +368,16 @@ const EMPTY_TEACHER: TeacherProfile = {
   namaLengkap: 'Agung Eko Setiono',
   gelarDepan: '',
   gelarBelakang: 'S.Pd., Gr.',
-  nip: '19930815 202221 1 008',
-  nuptk: '4147771672130093',
-  pangkatGolongan: 'Penata Muda Tk. I / III.b',
+  nip: '',
+  nuptk: '',
+  pangkatGolongan: '',
   jabatan: 'Guru Produktif Teknik Sepeda Motor',
   namaSekolah: APP_CONFIG.schoolDefault.namaSekolah,
   npsn: APP_CONFIG.schoolDefault.npsn,
   alamatSekolah: APP_CONFIG.schoolDefault.alamat,
   teleponSekolah: APP_CONFIG.schoolDefault.telepon,
-  email: 'agungekosetiono@smkn1gombong.sch.id',
-  noHp: '0812-2700-1993',
+  email: '',
+  noHp: '',
   fotoUrl: '',
   mataPelajaran: 'Konsentrasi Keahlian Teknik Sepeda Motor',
   konsentrasiKeahlian: 'Teknik Sepeda Motor (TSM)',
@@ -762,6 +742,11 @@ type CloudCode =
   | 'TIMEOUT'
   | 'INVALID_RESPONSE'
   | 'INVALID_REQUEST'
+  | 'METHOD_NOT_ALLOWED'
+  | 'LOGIN_FAILED'
+  | 'LOCKED'
+  | 'CREDENTIALS_NOT_CONFIGURED'
+  | 'WEAK_PASSWORD'
   | 'SERVER_ERROR';
 
 interface CloudResponse {
@@ -772,6 +757,9 @@ interface CloudResponse {
   version?: number;
   updatedAt?: string;
   currentVersion?: number;
+  token?: string;
+  expiresAt?: number;
+  email?: string;
 }
 
 const DATA_COLLECTIONS = [
@@ -850,6 +838,68 @@ const downloadDatabaseFile = (data: WorkspaceDatabase, prefix: string): boolean 
   }
 };
 
+// ---- Sesi login (token sesi diterbitkan server setelah email + kata sandi diverifikasi) ----
+interface AuthSession {
+  token: string;
+  email: string;
+  expiresAt: number;
+}
+
+const authStores = (): Storage[] => {
+  const out: Storage[] = [];
+  try {
+    out.push(sessionStorage);
+  } catch {
+    // sessionStorage tidak tersedia
+  }
+  try {
+    out.push(localStorage);
+  } catch {
+    // localStorage tidak tersedia
+  }
+  return out;
+};
+
+const readAuthSession = (): AuthSession | null => {
+  for (const store of authStores()) {
+    try {
+      const raw = store.getItem(APP_CONFIG.authStoreKey);
+      if (!raw) continue;
+      const s = JSON.parse(raw);
+      if (s && typeof s.token === 'string' && typeof s.expiresAt === 'number' && s.expiresAt > Date.now()) {
+        return { token: s.token, email: String(s.email || ''), expiresAt: s.expiresAt };
+      }
+      store.removeItem(APP_CONFIG.authStoreKey); // sesi kedaluwarsa/rusak
+    } catch {
+      // data sesi rusak: dianggap tidak ada
+    }
+  }
+  return null;
+};
+
+const clearAuthSession = (): void => {
+  authStores().forEach((st) => {
+    try {
+      st.removeItem(APP_CONFIG.authStoreKey);
+    } catch {
+      // abaikan
+    }
+  });
+};
+
+// remember=true -> localStorage (bertahan sampai sesi server habis); false -> hilang saat tab ditutup
+const saveAuthSession = (s: AuthSession, remember: boolean): boolean => {
+  clearAuthSession();
+  try {
+    (remember ? localStorage : sessionStorage).setItem(APP_CONFIG.authStoreKey, JSON.stringify(s));
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const getAuthToken = (): string => readAuthSession()?.token || '';
+
 class MotoTeachApiService {
   // Semua operasi data memakai POST (token berada di isi permintaan, bukan di URL).
   private async post(url: string, body: Record<string, unknown>, timeoutMs: number): Promise<CloudResponse> {
@@ -914,7 +964,22 @@ class MotoTeachApiService {
       version: typeof json?.version === 'number' ? json.version : undefined,
       updatedAt: json?.updatedAt,
       currentVersion: typeof json?.currentVersion === 'number' ? json.currentVersion : undefined,
+      token: typeof json?.token === 'string' ? json.token : undefined,
+      expiresAt: typeof json?.expiresAt === 'number' ? json.expiresAt : undefined,
+      email: typeof json?.email === 'string' ? json.email : undefined,
     };
+  }
+
+  async login(url: string, email: string, password: string): Promise<CloudResponse> {
+    return this.post(url, { action: 'login', email, password }, 30000);
+  }
+
+  async logout(url: string, token: string): Promise<CloudResponse> {
+    return this.post(url, { action: 'logout', token }, 10000);
+  }
+
+  async changePassword(url: string, token: string, oldPassword: string, newPassword: string): Promise<CloudResponse> {
+    return this.post(url, { action: 'changePassword', token, oldPassword, newPassword }, 30000);
   }
 
   async testConnection(url: string, token?: string): Promise<{ ok: boolean; message: string; latencyMs: number }> {
@@ -958,15 +1023,15 @@ class MotoTeachApiService {
     if (!token || !token.trim()) {
       return {
         ok: false,
-        message: 'Server terjangkau, tetapi API Token belum diisi. Isi token lalu uji koneksi lagi.',
+        message: 'Server terjangkau, tetapi Anda belum memiliki sesi login yang valid. Silakan login ulang.',
         latencyMs: elapsed(),
       };
     }
     const verify = await this.post(url, { action: 'verify', token: token.trim() }, 15000);
     if (verify.success) {
-      return { ok: true, message: verify.message || 'Terhubung dan token valid', latencyMs: elapsed() };
+      return { ok: true, message: verify.message || 'Terhubung dan sesi login valid', latencyMs: elapsed() };
     }
-    return { ok: false, message: verify.message || 'Verifikasi token gagal', latencyMs: elapsed() };
+    return { ok: false, message: verify.message || 'Verifikasi sesi gagal', latencyMs: elapsed() };
   }
 
   async pullDatabase(url: string, token?: string): Promise<CloudResponse> {
@@ -1106,28 +1171,36 @@ const KopSuratInstansi: React.FC<{ teacher: TeacherProfile; subtitle?: string }>
 // 6. KODE BACKEND APPS SCRIPT SIAP SALIN (UNTUK HALAMAN SETUP GUIDE)
 // ============================================================================
 const APPS_SCRIPT_CODE_BUNDLE = `/**
- * MotoTeach Workspace API v2.0.0 (Fase 2a: integritas data & sinkronisasi)
+ * MotoTeach Workspace API v3.0.0 (Fase 1: keamanan)
  *
- * Perubahan utama dibanding versi sebelumnya:
- *  - Token API disimpan di Script Properties (kunci: API_TOKEN), BUKAN di kode.
- *  - Token dikirim lewat isi POST, tidak lagi lewat query string URL.
- *  - doGet hanya melayani "health" (tanpa data). Pembacaan data wajib lewat POST + token.
- *  - Snapshot dipecah ke beberapa baris (batas Google Sheets: 50.000 karakter/sel).
- *  - Nomor versi + deteksi konflik antarperangkat (baseVersion).
- *  - Penolakan otomatis jika data kosong akan menimpa cloud yang berisi data.
- *  - Salinan snapshot sebelumnya (RawSnapshotPrev) dibuat saat penimpaan paksa.
- *  - Kode respons yang jelas: OK, EMPTY, AUTH_FAILED, CONFLICT, dst.
+ * Perubahan utama dibanding v2:
+ *  - Login diperiksa di SERVER (email + kata sandi). Kata sandi hanya disimpan sebagai
+ *    hash bergaram di Script Properties, tidak pernah ada di kode atau repository.
+ *  - Setelah login berhasil, server menerbitkan token sesi acak (berlaku 7 hari).
+ *    Semua akses data wajib membawa token sesi itu. Server hanya menyimpan hash token.
+ *  - Pembatasan percobaan login: 5 kali gagal = login dikunci 15 menit.
+ *  - Ganti kata sandi dilakukan di server (butuh kata sandi lama; sesi lain dicabut).
+ *  - API_TOKEN statis dari v2 DIHAPUS dan tidak lagi diterima.
+ *  - Menu "MotoTeach" di Spreadsheet untuk mengatur email & kata sandi admin.
  *
- * Format lama (satu sel PRIMARY_WORKSPACE di RawSnapshot!B2) tetap terbaca (dianggap versi 0).
+ * Fitur sinkronisasi (versi, deteksi konflik, snapshot terpecah) dari v2 tidak berubah.
  */
 
-const API_VERSION = '2.0.0';
+const API_VERSION = '3.0.0';
 const TZ = 'Asia/Jakarta';
 const CHUNK_SIZE = 40000;
 const SNAP_KEY = 'PRIMARY_WORKSPACE';
 const META_KEY = 'META';
 const MAX_LOG_ROWS = 500;
 const MAX_PAYLOAD_CHARS = 4000000;
+
+const HASH_ROUNDS = 1000;                       // putaran hash kata sandi
+const SESSION_TTL_MS = 7 * 24 * 3600 * 1000;    // masa berlaku sesi: 7 hari
+const MAX_SESSIONS = 10;                        // jumlah sesi aktif maksimum
+const MAX_LOGIN_FAILS = 5;                      // percobaan gagal sebelum dikunci
+const LOCK_MS = 15 * 60 * 1000;                 // lama penguncian login: 15 menit
+const MIN_PASSWORD_LEN = 10;
+const MAX_PASSWORD_LEN = 200;
 
 const SHEET_NAMES = [
   'Settings', 'TeacherProfile', 'AcademicYears', 'Calendar',
@@ -1154,7 +1227,7 @@ const CONTENT_KEYS = [
 ];
 
 /* ------------------------------------------------------------------ */
-/* SETUP & TOKEN                                                       */
+/* SETUP                                                               */
 /* ------------------------------------------------------------------ */
 
 /** Jalankan SEKALI dari editor untuk membuat semua sheet. */
@@ -1166,36 +1239,253 @@ function setupDatabase() {
   return 'Setup Database MotoTeach Workspace selesai!';
 }
 
-/**
- * Membuat token acak baru dan menyimpannya di Script Properties (API_TOKEN).
- * Jalankan dari editor, lalu buka Executions/Log untuk menyalin token ke
- * Pengaturan aplikasi. Menjalankan ulang fungsi ini = rotasi token
- * (token lama langsung tidak berlaku).
- */
-function rotateApiToken() {
-  const token = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
-  PropertiesService.getScriptProperties().setProperty('API_TOKEN', token);
-  Logger.log('API_TOKEN BARU (salin ke Pengaturan aplikasi): ' + token);
-  return 'Token baru dibuat. Lihat Execution log untuk menyalinnya.';
+/** Menu di Spreadsheet (muncul setelah Spreadsheet dimuat ulang). */
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('MotoTeach')
+    .addItem('Atur email & kata sandi admin', 'menuSetCredentials')
+    .addItem('Keluarkan semua sesi login', 'menuRevokeSessions')
+    .addToUi();
 }
 
-function checkAuth_(token) {
-  const expected = PropertiesService.getScriptProperties().getProperty('API_TOKEN');
-  if (!expected) {
-    return { ok: false, code: 'TOKEN_NOT_CONFIGURED',
-      message: 'Autentikasi gagal: API Token belum dikonfigurasi di server (Script Properties, kunci API_TOKEN).' };
+function menuSetCredentials() {
+  const ui = SpreadsheetApp.getUi();
+  const r1 = ui.prompt('Email admin', 'Email yang dipakai untuk login ke aplikasi:', ui.ButtonSet.OK_CANCEL);
+  if (r1.getSelectedButton() !== ui.Button.OK) return;
+  const r2 = ui.prompt('Kata sandi baru',
+    'Minimal ' + MIN_PASSWORD_LEN + ' karakter, memuat huruf dan angka/simbol. Gunakan kata sandi yang BARU dan belum pernah dipakai di tempat lain. (Teks terlihat saat diketik; lakukan di tempat privat.)',
+    ui.ButtonSet.OK_CANCEL);
+  if (r2.getSelectedButton() !== ui.Button.OK) return;
+  const r3 = ui.prompt('Ulangi kata sandi', 'Ketik kata sandi yang sama sekali lagi:', ui.ButtonSet.OK_CANCEL);
+  if (r3.getSelectedButton() !== ui.Button.OK) return;
+  if (r2.getResponseText() !== r3.getResponseText()) {
+    ui.alert('Kata sandi tidak sama. Tidak ada yang diubah.');
+    return;
   }
-  if (!token || !safeEquals_(String(token), expected)) {
-    return { ok: false, code: 'AUTH_FAILED', message: 'Autentikasi gagal: API Token tidak valid.' };
+  try {
+    setAdminCredentials_(r1.getResponseText(), r2.getResponseText());
+    ui.alert('Berhasil. Email dan kata sandi admin sudah diatur. Semua sesi login lama dicabut. Silakan login di aplikasi.');
+  } catch (err) {
+    ui.alert('Gagal: ' + (err && err.message ? err.message : String(err)));
   }
-  return { ok: true };
+}
+
+function menuRevokeSessions() {
+  revokeAllSessions();
+  SpreadsheetApp.getUi().alert('Semua sesi login dicabut. Semua perangkat harus login ulang.');
+}
+
+/** Dapat juga dijalankan dari editor: mencabut semua sesi login. */
+function revokeAllSessions() {
+  props_().deleteProperty('SESSIONS');
+  return 'Semua sesi dicabut.';
+}
+
+/* ------------------------------------------------------------------ */
+/* AUTENTIKASI                                                         */
+/* ------------------------------------------------------------------ */
+
+function props_() {
+  return PropertiesService.getScriptProperties();
+}
+
+function sha256Hex_(text) {
+  const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, text, Utilities.Charset.UTF_8);
+  return bytes.map(function (b) {
+    return ('0' + (b < 0 ? b + 256 : b).toString(16)).slice(-2);
+  }).join('');
+}
+
+function hashPassword_(password, salt) {
+  var h = sha256Hex_(salt + ':' + password);
+  for (var i = 0; i < HASH_ROUNDS; i++) h = sha256Hex_(h + ':' + salt);
+  return h;
 }
 
 function safeEquals_(a, b) {
+  a = String(a);
+  b = String(b);
   if (a.length !== b.length) return false;
   var diff = 0;
   for (var i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
+}
+
+/** Mengembalikan pesan kesalahan, atau null jika kata sandi memenuhi syarat. */
+function validatePassword_(password, email) {
+  if (typeof password !== 'string' || password.length < MIN_PASSWORD_LEN) {
+    return 'Kata sandi minimal ' + MIN_PASSWORD_LEN + ' karakter.';
+  }
+  if (password.length > MAX_PASSWORD_LEN) return 'Kata sandi terlalu panjang.';
+  if (!/[A-Za-z]/.test(password) || !/[0-9\\W_]/.test(password)) {
+    return 'Kata sandi harus memuat huruf dan minimal satu angka atau simbol.';
+  }
+  const local = String(email || '').toLowerCase().split('@')[0];
+  if (local.length >= 4 && password.toLowerCase().indexOf(local) !== -1) {
+    return 'Kata sandi tidak boleh memuat bagian nama email.';
+  }
+  return null;
+}
+
+function setAdminCredentials_(email, password) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(e)) throw new Error('Format email tidak valid.');
+  const err = validatePassword_(password, e);
+  if (err) throw new Error(err);
+  const salt = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
+  const p = props_();
+  p.setProperty('ADMIN_EMAIL', e);
+  p.setProperty('PASSWORD_SALT', salt);
+  p.setProperty('PASSWORD_HASH', hashPassword_(password, salt));
+  p.deleteProperty('API_TOKEN');          // token statis versi 2 dihapus
+  p.deleteProperty('SESSIONS');           // cabut semua sesi lama
+  p.deleteProperty('LOGIN_FAILS');
+  p.deleteProperty('LOGIN_LOCK_UNTIL');
+}
+
+function readSessions_() {
+  try {
+    const raw = props_().getProperty('SESSIONS');
+    const o = raw ? JSON.parse(raw) : {};
+    return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {};
+  } catch (err) {
+    return {};
+  }
+}
+
+function writeSessions_(o) {
+  props_().setProperty('SESSIONS', JSON.stringify(o));
+}
+
+function pruneSessions_(sessions, now) {
+  Object.keys(sessions).forEach(function (k) {
+    if (!(sessions[k] > now)) delete sessions[k];
+  });
+  const keys = Object.keys(sessions).sort(function (x, y) { return sessions[x] - sessions[y]; });
+  while (keys.length > MAX_SESSIONS) delete sessions[keys.shift()];
+  return sessions;
+}
+
+function createSession_() {
+  const token = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
+  const now = Date.now();
+  const sessions = pruneSessions_(readSessions_(), now);
+  sessions[sha256Hex_(token)] = now + SESSION_TTL_MS;
+  writeSessions_(pruneSessions_(sessions, now));
+  return { token: token, expiresAt: now + SESSION_TTL_MS };
+}
+
+/** Memeriksa token sesi. Hanya hash token yang disimpan di server. */
+function checkSession_(token) {
+  if (typeof token !== 'string' || token.length < 32 || token.length > 200) return { ok: false };
+  const hash = sha256Hex_(token);
+  const exp = readSessions_()[hash];
+  if (!exp || !(exp > Date.now())) return { ok: false };
+  return { ok: true, hash: hash };
+}
+
+function loginLockResponse_() {
+  const until = Number(props_().getProperty('LOGIN_LOCK_UNTIL') || 0);
+  const now = Date.now();
+  if (until > now) {
+    return fail_('LOCKED', 'Terlalu banyak percobaan gagal. Coba lagi dalam ' + Math.ceil((until - now) / 60000) + ' menit.');
+  }
+  return null;
+}
+
+/** Mencatat satu kegagalan; mengembalikan sisa percobaan, atau 0 jika kini terkunci. */
+function registerLoginFailure_() {
+  const p = props_();
+  const fails = (Number(p.getProperty('LOGIN_FAILS')) || 0) + 1;
+  if (fails >= MAX_LOGIN_FAILS) {
+    p.setProperty('LOGIN_LOCK_UNTIL', String(Date.now() + LOCK_MS));
+    p.setProperty('LOGIN_FAILS', '0');
+    return 0;
+  }
+  p.setProperty('LOGIN_FAILS', String(fails));
+  return MAX_LOGIN_FAILS - fails;
+}
+
+function clearLoginFailures_() {
+  props_().deleteProperty('LOGIN_FAILS');
+  props_().deleteProperty('LOGIN_LOCK_UNTIL');
+}
+
+function failedLoginResponse_(message) {
+  const left = registerLoginFailure_();
+  if (left === 0) return fail_('LOCKED', 'Terlalu banyak percobaan gagal. Login dikunci selama 15 menit.');
+  return fail_('LOGIN_FAILED', message + ' (sisa percobaan: ' + left + ')');
+}
+
+function handleLogin_(ss, body) {
+  const p = props_();
+  const adminEmail = p.getProperty('ADMIN_EMAIL');
+  const hash = p.getProperty('PASSWORD_HASH');
+  const salt = p.getProperty('PASSWORD_SALT');
+  if (!adminEmail || !hash || !salt) {
+    return fail_('CREDENTIALS_NOT_CONFIGURED',
+      'Akun admin belum diatur di server. Di Spreadsheet, buka menu MotoTeach > Atur email & kata sandi admin.');
+  }
+  const locked = loginLockResponse_();
+  if (locked) return locked;
+
+  const email = String(body.email || '').trim().toLowerCase();
+  const password = typeof body.password === 'string' ? body.password.slice(0, MAX_PASSWORD_LEN) : '';
+  // Hash selalu dihitung agar waktu respons tidak membocorkan apakah email benar.
+  const computed = hashPassword_(password, salt);
+  const emailOk = safeEquals_(email, adminEmail);
+  const passOk = safeEquals_(computed, hash);
+
+  if (emailOk && passOk) {
+    clearLoginFailures_();
+    const s = createSession_();
+    appendLog_(ss, 'login', 'berhasil', 'OK');
+    return ok_({ code: 'OK', message: 'Login berhasil', token: s.token, expiresAt: s.expiresAt, email: adminEmail });
+  }
+  appendLog_(ss, 'login', 'gagal', 'FAILED');
+  return failedLoginResponse_('Email atau kata sandi salah.');
+}
+
+function handleLogout_(ss, session) {
+  const sessions = readSessions_();
+  delete sessions[session.hash];
+  writeSessions_(sessions);
+  return ok_({ code: 'OK', message: 'Logout berhasil' });
+}
+
+function handleChangePassword_(ss, body, session) {
+  const p = props_();
+  const adminEmail = p.getProperty('ADMIN_EMAIL');
+  const salt = p.getProperty('PASSWORD_SALT');
+  const hash = p.getProperty('PASSWORD_HASH');
+  if (!adminEmail || !salt || !hash) return fail_('CREDENTIALS_NOT_CONFIGURED', 'Akun admin belum diatur di server.');
+
+  const locked = loginLockResponse_();
+  if (locked) return locked;
+
+  const oldPw = typeof body.oldPassword === 'string' ? body.oldPassword.slice(0, MAX_PASSWORD_LEN) : '';
+  const newPw = typeof body.newPassword === 'string' ? body.newPassword : '';
+  if (!safeEquals_(hashPassword_(oldPw, salt), hash)) {
+    appendLog_(ss, 'changePassword', 'kata sandi lama salah', 'FAILED');
+    return failedLoginResponse_('Kata sandi lama salah.');
+  }
+  const err = validatePassword_(newPw, adminEmail);
+  if (err) return fail_('WEAK_PASSWORD', err);
+  if (newPw === oldPw) return fail_('WEAK_PASSWORD', 'Kata sandi baru harus berbeda dari kata sandi lama.');
+
+  const newSalt = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
+  p.setProperty('PASSWORD_SALT', newSalt);
+  p.setProperty('PASSWORD_HASH', hashPassword_(newPw, newSalt));
+  clearLoginFailures_();
+
+  // Cabut semua sesi lain; pertahankan sesi yang sedang dipakai.
+  const sessions = readSessions_();
+  const keep = {};
+  if (sessions[session.hash]) keep[session.hash] = sessions[session.hash];
+  writeSessions_(keep);
+
+  appendLog_(ss, 'changePassword', 'berhasil; sesi lain dicabut', 'OK');
+  return ok_({ code: 'OK', message: 'Kata sandi berhasil diperbarui. Sesi di perangkat lain dikeluarkan.' });
 }
 
 /* ------------------------------------------------------------------ */
@@ -1205,9 +1495,12 @@ function safeEquals_(a, b) {
 function doGet(e) {
   const action = (e && e.parameter && e.parameter.action) ? e.parameter.action : 'health';
   if (action === 'health') {
-    return respond_({ success: true, code: 'OK', message: 'MotoTeach Google Apps Script API aktif', apiVersion: API_VERSION });
+    return respond_({
+      success: true, code: 'OK', message: 'MotoTeach Google Apps Script API aktif',
+      apiVersion: API_VERSION, credentialsConfigured: !!props_().getProperty('PASSWORD_HASH')
+    });
   }
-  return fail_('METHOD_NOT_ALLOWED', 'Gunakan permintaan POST dengan token untuk membaca atau menulis data.');
+  return fail_('METHOD_NOT_ALLOWED', 'Gunakan permintaan POST untuk operasi ini.');
 }
 
 function doPost(e) {
@@ -1219,8 +1512,14 @@ function doPost(e) {
   }
   if (!body || typeof body !== 'object') return fail_('INVALID_REQUEST', 'Permintaan tidak valid.');
 
-  const auth = checkAuth_(body.token);
-  if (!auth.ok) return fail_(auth.code, auth.message);
+  var session = null;
+  if (body.action === 'login') {
+    const pre = loginLockResponse_();    // tolak cepat saat terkunci, tanpa menahan kunci skrip
+    if (pre) return pre;
+  } else {
+    session = checkSession_(body.token);
+    if (!session.ok) return fail_('AUTH_FAILED', 'Sesi login tidak valid atau sudah berakhir. Silakan login ulang.');
+  }
 
   const lock = LockService.getScriptLock();
   try {
@@ -1231,6 +1530,9 @@ function doPost(e) {
 
   try {
     const ss = getSS_();
+    if (body.action === 'login') return handleLogin_(ss, body);
+    if (body.action === 'logout') return handleLogout_(ss, session);
+    if (body.action === 'changePassword') return handleChangePassword_(ss, body, session);
     if (body.action === 'verify') return handleVerify_(ss);
     if (body.action === 'pullAll') return handlePull_(ss);
     if (body.action === 'syncAll') return handleSync_(ss, body);
@@ -1244,7 +1546,7 @@ function doPost(e) {
 
 function handleVerify_(ss) {
   const snap = readSnapshot_(ss);
-  return ok_({ code: 'OK', message: 'Token valid. Terhubung ke Spreadsheet "' + ss.getName() + '".',
+  return ok_({ code: 'OK', message: 'Sesi login valid. Terhubung ke Spreadsheet "' + ss.getName() + '".',
     version: snap.state === 'OK' ? snap.version : 0, apiVersion: API_VERSION });
 }
 
@@ -1522,18 +1824,14 @@ interface ConfirmState {
 }
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    try {
-      return sessionStorage.getItem(APP_CONFIG.authSessionKey) === 'authenticated';
-    } catch {
-      return false;
-    }
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => readAuthSession() !== null);
+  const [loginNotice, setLoginNotice] = useState('');
 
   const [settings, setSettings] = useState<AppSettings>(() => {
     try {
       const saved = localStorage.getItem(APP_CONFIG.configKey);
       const parsed = saved ? JSON.parse(saved) : {};
+      delete parsed.apiToken; // sisa token statis versi lama: dibuang
       return {
         ...DEFAULT_SETTINGS,
         ...parsed,
@@ -1618,6 +1916,18 @@ export default function App() {
   const lastErrorToastRef = useRef(0);
   const [syncDetail, setSyncDetail] = useState('');
 
+  // Bersihkan sisa login lokal versi lama (hash kata sandi di browser) saat aplikasi dimuat
+  useEffect(() => {
+    APP_CONFIG.legacyKeys.forEach((k) => {
+      try {
+        localStorage.removeItem(k);
+        sessionStorage.removeItem(k);
+      } catch {
+        // abaikan
+      }
+    });
+  }, []);
+
   useEffect(() => {
     try {
       localStorage.setItem(APP_CONFIG.storageKey, JSON.stringify(db));
@@ -1670,10 +1980,56 @@ export default function App() {
     markSynced();
   };
 
+  // Keluar dari aplikasi. Data lokal TIDAK dihapus; hanya sesi login yang dibuang.
+  const performLogout = (notice?: string) => {
+    clearAuthSession();
+    pausedRef.current = null;
+    setSyncStatus('idle');
+    setSyncDetail('');
+    setLoginNotice(notice || '');
+    setIsAuthenticated(false);
+  };
+
+  // Mengembalikan pesan kesalahan, atau null jika berhasil.
+  const handleLogin = async (email: string, password: string, remember: boolean): Promise<string | null> => {
+    const url = settingsRef.current.appsScriptUrl;
+    if (!url) return 'URL Google Apps Script belum diisi.';
+    const res = await apiService.login(url, email, password);
+    if (!res.success || !res.token || typeof res.expiresAt !== 'number') {
+      return res.message || 'Login gagal. Silakan coba lagi.';
+    }
+    const saved = saveAuthSession({ token: res.token, email: res.email || email, expiresAt: res.expiresAt }, remember);
+    if (!saved) return 'Browser tidak dapat menyimpan sesi login (mode privat atau penyimpanan penuh).';
+    pausedRef.current = null;
+    setLoginNotice('');
+    setIsAuthenticated(true);
+    showToast('success', 'Selamat datang kembali di MotoTeach Workspace!');
+    return null;
+  };
+
+  const handleLogout = () => {
+    const token = getAuthToken();
+    const url = settingsRef.current.appsScriptUrl;
+    performLogout();
+    if (token && url) {
+      // Pencabutan sesi di server dilakukan sebisanya; sesi tetap kedaluwarsa otomatis di server.
+      void apiService.logout(url, token);
+    }
+  };
+
+  const handleChangePassword = async (oldPwd: string, newPwd: string): Promise<{ ok: boolean; message: string }> => {
+    const url = settingsRef.current.appsScriptUrl;
+    const res = await apiService.changePassword(url, getAuthToken(), oldPwd, newPwd);
+    if (res.code === 'AUTH_FAILED') {
+      performLogout('Sesi login berakhir. Silakan login kembali.');
+      return { ok: false, message: res.message };
+    }
+    return { ok: res.success, message: res.message };
+  };
+
   const handleFailure = (res: CloudResponse, manual: boolean) => {
-    if (res.code === 'AUTH_FAILED' || res.code === 'TOKEN_NOT_CONFIGURED') {
-      pausedRef.current = 'auth';
-      notifySyncError(`${res.message} Buka Pengaturan & Backup untuk mengisi API Token.`, true);
+    if (res.code === 'AUTH_FAILED') {
+      performLogout('Sesi login berakhir atau dicabut. Silakan login kembali. Data lokal Anda tetap tersimpan di perangkat ini.');
       return;
     }
     if (res.code === 'EMPTY_PAYLOAD') {
@@ -1719,7 +2075,7 @@ export default function App() {
     do {
       queuedRef.current = false;
       const counterBefore = changeCounterRef.current;
-      const res = await apiService.pushDatabase(s.appsScriptUrl, dbRef.current, s.apiToken, cloudVersionRef.current, {
+      const res = await apiService.pushDatabase(s.appsScriptUrl, dbRef.current, getAuthToken(), cloudVersionRef.current, {
         force: useForce,
         allowEmpty: allowEmptyRef.current,
       });
@@ -1746,7 +2102,7 @@ export default function App() {
   // Tarik data cloud lalu putuskan tindakan yang aman. Dipanggil saat syncingRef sudah true.
   const reconcile = async (manual: boolean, allowPush: boolean) => {
     const s = settingsRef.current;
-    const pull = await apiService.pullDatabase(s.appsScriptUrl, s.apiToken);
+    const pull = await apiService.pullDatabase(s.appsScriptUrl, getAuthToken());
 
     if (pull.code === 'EMPTY') {
       // Cloud TERBUKTI kosong (bukan gagal dibaca): aman untuk inisialisasi.
@@ -1863,7 +2219,7 @@ export default function App() {
     }
     await withSyncLock(
       async () => {
-        const pull = await apiService.pullDatabase(s.appsScriptUrl, s.apiToken);
+        const pull = await apiService.pullDatabase(s.appsScriptUrl, getAuthToken());
         if (pull.code === 'EMPTY') {
           setCloudVersion(0);
           markSynced();
@@ -2417,8 +2773,7 @@ export default function App() {
             lastSyncTime={lastSyncTime}
             syncDetail={syncDetail}
             onUpdateSettings={(next) => {
-              const connectionChanged =
-                next.appsScriptUrl !== settings.appsScriptUrl || next.apiToken !== settings.apiToken;
+              const connectionChanged = next.appsScriptUrl !== settings.appsScriptUrl;
               settingsRef.current = next;
               setSettings(next);
               pausedRef.current = null;
@@ -2429,8 +2784,10 @@ export default function App() {
                 }, 0);
               }
             }}
-            onTestConnection={async (url, token) => {
-              const res = await apiService.testConnection(url, token);
+            accountEmail={readAuthSession()?.email || ''}
+            onChangePassword={handleChangePassword}
+            onTestConnection={async (url) => {
+              const res = await apiService.testConnection(url, getAuthToken());
               if (res.ok) {
                 showToast('success', `${res.message} (${res.latencyMs} ms)`);
               } else {
@@ -2480,13 +2837,8 @@ export default function App() {
       <LoginPage
         dark={dark}
         onToggleDark={() => setSettings((s) => ({ ...s, darkMode: !s.darkMode }))}
-        onLoginSuccess={() => {
-          try {
-            sessionStorage.setItem(APP_CONFIG.authSessionKey, 'authenticated');
-          } catch {}
-          setIsAuthenticated(true);
-          showToast('success', 'Selamat datang kembali di MotoTeach Workspace!');
-        }}
+        notice={loginNotice}
+        onLogin={handleLogin}
       />
     );
   }
@@ -2596,12 +2948,7 @@ export default function App() {
 
         <div className="p-3 border-t border-white/10 flex items-center justify-between gap-2">
           <button
-            onClick={() => {
-              try {
-                sessionStorage.removeItem(APP_CONFIG.authSessionKey);
-              } catch {}
-              setIsAuthenticated(false);
-            }}
+            onClick={handleLogout}
             className="flex items-center gap-2 px-3 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-600 text-rose-100 hover:text-white text-xs font-semibold transition-colors"
             title="Keluar dari Workspace"
           >
@@ -2833,43 +3180,31 @@ export default function App() {
 }
 
 // ============================================================================
-// KOMPONEN LOGIN PAGE (AMAN DENGAN HASH SHA-256)
+// KOMPONEN LOGIN PAGE (VERIFIKASI DI SERVER / GOOGLE APPS SCRIPT)
 // ============================================================================
 const LoginPage: React.FC<{
   dark: boolean;
   onToggleDark: () => void;
-  onLoginSuccess: () => void;
-}> = ({ dark, onToggleDark, onLoginSuccess }) => {
+  notice?: string;
+  onLogin: (email: string, password: string, remember: boolean) => Promise<string | null>;
+}> = ({ dark, onToggleDark, notice, onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setErrorMsg('');
     setLoading(true);
     try {
-      const normalizedEmail = email.trim().toLowerCase();
-      if (normalizedEmail !== APP_CONFIG.authEmail.toLowerCase()) {
-        setErrorMsg('Email pengguna tidak terdaftar pada MotoTeach Workspace.');
-        setLoading(false);
-        return;
-      }
-
-      const inputHash = await sha256Hex(password);
-      const defaultExpectedHash = await sha256Hex('20330330Smk!');
-      const customSavedHash = localStorage.getItem(APP_CONFIG.authCustomHashKey);
-      const validHash = customSavedHash || defaultExpectedHash;
-
-      if (inputHash === validHash) {
-        onLoginSuccess();
-      } else {
-        setErrorMsg('Kata sandi yang Anda masukkan salah. Silakan periksa kembali.');
-      }
-    } catch {
-      setErrorMsg('Terjadi kendala verifikasi keamanan.');
+      const err = await onLogin(email.trim(), password, remember);
+      if (err) setErrorMsg(err);
+    } catch (e2: any) {
+      setErrorMsg(`Terjadi kendala saat login: ${e2?.message || 'kesalahan tak terduga'}`);
     } finally {
       setLoading(false);
     }
@@ -2914,6 +3249,13 @@ const LoginPage: React.FC<{
             Silakan masuk menggunakan akun guru terdaftar untuk mengakses perangkat ajar, presensi, dan penilaian peserta didik.
           </p>
         </div>
+
+        {notice && !errorMsg && (
+          <div className="p-3.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-200 text-xs font-medium flex items-center gap-2">
+            <AlertTriangle size={16} className="shrink-0" />
+            <span>{notice}</span>
+          </div>
+        )}
 
         {errorMsg && (
           <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-medium flex items-center gap-2">
@@ -2969,18 +3311,28 @@ const LoginPage: React.FC<{
             <p className="text-[11px] text-slate-400 mt-1">Password dapat diubah kapan saja melalui menu Pengaturan.</p>
           </div>
 
+          <label className="flex items-start gap-2 text-xs text-slate-500 dark:text-slate-400 select-none">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+              className="w-4 h-4 mt-0.5"
+            />
+            <span>Ingat saya di perangkat ini (maks. 7 hari). Jangan dicentang di komputer bersama.</span>
+          </label>
+
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-xl bg-[#173B70] hover:bg-blue-900 text-white font-bold text-sm shadow-md transition-colors min-h-[46px]"
+            className="w-full py-3 rounded-xl bg-[#173B70] hover:bg-blue-900 disabled:opacity-60 text-white font-bold text-sm shadow-md transition-colors min-h-[46px]"
           >
-            {loading ? 'Memverifikasi...' : 'Masuk ke Workspace'}
+            {loading ? 'Memverifikasi ke server...' : 'Masuk ke Workspace'}
           </button>
         </form>
 
         <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
           <span className="flex items-center gap-1">
-            <ShieldCheck size={14} className="text-[#178C8C]" /> Proteksi Lokal & Cloud Sheets
+            <ShieldCheck size={14} className="text-[#178C8C]" /> Login diverifikasi di server
           </span>
           <span>STEMSAGO TSM</span>
         </div>
@@ -6255,7 +6607,9 @@ const SettingsBackupView: React.FC<{
   lastSyncTime: string;
   onUpdateSettings: (s: AppSettings) => void;
   syncDetail?: string;
-  onTestConnection: (url: string, token: string) => void;
+  accountEmail: string;
+  onChangePassword: (oldPwd: string, newPwd: string) => Promise<{ ok: boolean; message: string }>;
+  onTestConnection: (url: string) => void;
   onForcePush: () => void;
   onSyncNow: () => void;
   onPullFromCloud: () => void;
@@ -6271,12 +6625,13 @@ const SettingsBackupView: React.FC<{
   onPullFromCloud,
   onForcePush,
   syncDetail,
+  accountEmail,
+  onChangePassword,
   onRestoreDatabase,
   onResetLocal,
 }) => {
   const [urlInput, setUrlInput] = useState(settings.appsScriptUrl);
-  const [tokenInput, setTokenInput] = useState(settings.apiToken || '');
-  const [showToken, setShowToken] = useState(false);
+  const [pwdBusy, setPwdBusy] = useState(false);
   const [tahun, setTahun] = useState(settings.tahunAjaran);
   const [semester, setSemester] = useState<'Ganjil' | 'Genap'>(settings.semester);
 
@@ -6294,30 +6649,30 @@ const SettingsBackupView: React.FC<{
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (pwdBusy) return;
     setPwdStatus(null);
-    if (newPwd.length < 8) {
-      setPwdStatus({ type: 'err', text: 'Kata sandi baru minimal 8 karakter.' });
+    if (newPwd.length < 10) {
+      setPwdStatus({ type: 'err', text: 'Kata sandi baru minimal 10 karakter.' });
       return;
     }
     if (newPwd !== confirmPwd) {
       setPwdStatus({ type: 'err', text: 'Konfirmasi kata sandi baru tidak cocok.' });
       return;
     }
-    const oldHash = await sha256Hex(oldPwd);
-    const defaultHash = await sha256Hex('20330330Smk!');
-    const currentValidHash = localStorage.getItem(APP_CONFIG.authCustomHashKey) || defaultHash;
-
-    if (oldHash !== currentValidHash) {
-      setPwdStatus({ type: 'err', text: 'Kata sandi lama yang Anda masukkan salah.' });
-      return;
+    setPwdBusy(true);
+    try {
+      const res = await onChangePassword(oldPwd, newPwd);
+      if (res.ok) {
+        setOldPwd('');
+        setNewPwd('');
+        setConfirmPwd('');
+        setPwdStatus({ type: 'ok', text: res.message || 'Kata sandi berhasil diperbarui!' });
+      } else {
+        setPwdStatus({ type: 'err', text: res.message || 'Gagal memperbarui kata sandi.' });
+      }
+    } finally {
+      setPwdBusy(false);
     }
-
-    const nextHash = await sha256Hex(newPwd);
-    localStorage.setItem(APP_CONFIG.authCustomHashKey, nextHash);
-    setOldPwd('');
-    setNewPwd('');
-    setConfirmPwd('');
-    setPwdStatus({ type: 'ok', text: 'Kata sandi berhasil diperbarui!' });
   };
 
   const handleDownloadBackup = () => {
@@ -6356,7 +6711,7 @@ const SettingsBackupView: React.FC<{
           <h3 className="font-bold text-base">Keamanan Akun & Ubah Kata Sandi</h3>
         </div>
         <p className="text-xs text-slate-500">
-          Akun aktif: <strong>{APP_CONFIG.authEmail}</strong>. Kata sandi disimpan dalam bentuk hash kriptografi SHA-256.
+          Akun aktif: <strong>{accountEmail || '-'}</strong>. Kata sandi diperiksa di server (Google Apps Script) dan tidak disimpan di aplikasi. Mengganti kata sandi akan mengeluarkan perangkat lain.
         </p>
 
         {pwdStatus && (
@@ -6378,15 +6733,19 @@ const SettingsBackupView: React.FC<{
           </div>
           <div>
             <label className="block text-xs font-semibold mb-1">Kata Sandi Baru *</label>
-            <input type="password" required className={inputCls} value={newPwd} onChange={(e) => setNewPwd(e.target.value)} placeholder="Minimal 8 karakter" />
+            <input type="password" required className={inputCls} value={newPwd} onChange={(e) => setNewPwd(e.target.value)} placeholder="Min. 10 karakter, huruf + angka/simbol" />
           </div>
           <div>
             <label className="block text-xs font-semibold mb-1">Konfirmasi Sandi Baru *</label>
             <input type="password" required className={inputCls} value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} placeholder="Ulangi sandi baru" />
           </div>
         </div>
-        <button type="submit" className="px-5 py-2.5 rounded-xl bg-[#173B70] text-white text-xs font-bold min-h-[44px]">
-          Perbarui Kata Sandi
+        <button
+          type="submit"
+          disabled={pwdBusy}
+          className="px-5 py-2.5 rounded-xl bg-[#173B70] disabled:opacity-60 text-white text-xs font-bold min-h-[44px]"
+        >
+          {pwdBusy ? 'Memproses...' : 'Perbarui Kata Sandi'}
         </button>
       </form>
 
@@ -6405,31 +6764,6 @@ const SettingsBackupView: React.FC<{
               onChange={(e) => setUrlInput(e.target.value)}
             />
           </div>
-          <div className="md:col-span-2">
-            <label className="block text-xs font-semibold mb-1">API Token Backend</label>
-            <div className="relative">
-              <input
-                type={showToken ? 'text' : 'password'}
-                autoComplete="off"
-                className={`${inputCls} pr-12`}
-                placeholder="Tempel token dari Apps Script (Script Properties: API_TOKEN)"
-                value={tokenInput}
-                onChange={(e) => setTokenInput(e.target.value)}
-              />
-              <button
-                type="button"
-                onClick={() => setShowToken((v) => !v)}
-                aria-label={showToken ? 'Sembunyikan token' : 'Tampilkan token'}
-                className="absolute right-1 top-1/2 -translate-y-1/2 p-2.5 text-slate-500"
-              >
-                {showToken ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-            <p className="text-[11px] text-slate-400 mt-1">
-              Token hanya disimpan di browser ini, tidak di repository. Buat atau ganti token dengan menjalankan fungsi{' '}
-              <code>rotateApiToken</code> di editor Apps Script, lalu salin dari Execution log.
-            </p>
-          </div>
           <div>
             <label className="block text-xs font-semibold mb-1">Tahun Ajaran Aktif</label>
             <input className={inputCls} value={tahun} onChange={(e) => setTahun(e.target.value)} />
@@ -6445,13 +6779,13 @@ const SettingsBackupView: React.FC<{
 
         <div className="flex flex-wrap gap-3 pt-2">
           <button
-            onClick={() => onUpdateSettings({ ...settings, appsScriptUrl: urlInput.trim(), apiToken: tokenInput.trim(), tahunAjaran: tahun, semester })}
+            onClick={() => onUpdateSettings({ ...settings, appsScriptUrl: urlInput.trim(), tahunAjaran: tahun, semester })}
             className="px-5 py-2.5 rounded-xl bg-[#173B70] text-white text-xs font-bold min-h-[44px]"
           >
             Simpan Konfigurasi
           </button>
           <button
-            onClick={() => onTestConnection(urlInput.trim(), tokenInput.trim())}
+            onClick={() => onTestConnection(urlInput.trim())}
             className="px-4 py-2.5 rounded-xl border text-xs font-bold min-h-[44px]"
           >
             Test Koneksi API
@@ -6545,7 +6879,7 @@ const SetupGuideView: React.FC<{ dark: boolean; onCopySuccess: (label: string) =
             <li>Di dalam Spreadsheet tadi, klik menu <strong>Ekstensi</strong> → <strong>Apps Script</strong>.</li>
             <li>Tempel kode dari tombol <strong>Salin Kode Apps Script</strong> di bawah dan Simpan.</li>
             <li>Pilih fungsi <code>setupDatabase</code> lalu klik <strong>Jalankan (Run)</strong>.</li>
-            <li>Pilih fungsi <code>rotateApiToken</code>, klik <strong>Jalankan</strong>, lalu salin token dari <strong>Execution log</strong>.</li>
+            <li>Muat ulang Spreadsheet, lalu buka menu <strong>MotoTeach → Atur email &amp; kata sandi admin</strong> dan isi email serta kata sandi baru (minimal 10 karakter).</li>
           </ol>
         </div>
 
@@ -6563,7 +6897,7 @@ const SetupGuideView: React.FC<{ dark: boolean; onCopySuccess: (label: string) =
           <span className="text-xs font-extrabold text-[#178C8C]">TAHAP 4 — MENGHUBUNGKAN KE APLIKASI</span>
           <ol className="list-decimal list-inside text-xs sm:text-sm space-y-1.5 pt-1">
             <li>Buka menu <strong>Pengaturan & Backup</strong> di sidebar kiri aplikasi ini.</li>
-            <li>Tempel URL Web App dan <strong>API Token</strong>, lalu klik <strong>Simpan Konfigurasi</strong> & <strong>Test Koneksi API</strong>.</li>
+            <li>Tempel URL Web App lalu klik <strong>Simpan Konfigurasi</strong>. Setelah masuk dengan email dan kata sandi admin, klik <strong>Test Koneksi API</strong>.</li>
           </ol>
         </div>
       </div>
