@@ -43,6 +43,8 @@ const APP_CONFIG = {
   configKey: 'mototeach_workspace_v1_config',
   authSessionKey: 'mototeach_workspace_v1_session',
   authCustomHashKey: 'mototeach_workspace_v1_pwd_hash',
+  cloudVersionKey: 'mototeach_workspace_v1_cloud_version',
+  dirtyKey: 'mototeach_workspace_v1_dirty',
 };
 
 // Fungsi hashing SHA-256 satu arah menggunakan Web Crypto API
@@ -745,116 +747,264 @@ const createDemoDatabase = (): WorkspaceDatabase => {
 // ============================================================================
 // 4. APPLICATION / API LAYER (apiService.ts)
 // ============================================================================
-class MotoTeachApiService {
-  private inflightWrites = new Set<string>();
+// Kode respons standar dari backend Apps Script v2 (lihat Google_App_Script.gs)
+type CloudCode =
+  | 'OK'
+  | 'EMPTY'
+  | 'AUTH_FAILED'
+  | 'TOKEN_NOT_CONFIGURED'
+  | 'CONFLICT'
+  | 'EMPTY_PAYLOAD'
+  | 'SERVER_CORRUPT'
+  | 'BUSY'
+  | 'NOT_CONFIGURED'
+  | 'NETWORK'
+  | 'TIMEOUT'
+  | 'INVALID_RESPONSE'
+  | 'INVALID_REQUEST'
+  | 'SERVER_ERROR';
 
-  async testConnection(url: string): Promise<{ ok: boolean; message: string; latencyMs: number }> {
+interface CloudResponse {
+  success: boolean;
+  code: CloudCode;
+  message: string;
+  data?: any;
+  version?: number;
+  updatedAt?: string;
+  currentVersion?: number;
+}
+
+const DATA_COLLECTIONS = [
+  'calendar', 'classes', 'students', 'subjects', 'cps', 'cpAnalyses', 'atps',
+  'protas', 'promes', 'modules', 'jobsheets', 'journals', 'attendances',
+  'assessments', 'grades', 'followUps',
+] as const;
+
+// Apakah database berisi data pengguna (bukan sekadar kerangka kosong)?
+const hasUserData = (d: WorkspaceDatabase): boolean =>
+  DATA_COLLECTIONS.some((k) => Array.isArray((d as any)[k]) && (d as any)[k].length > 0);
+
+// Memvalidasi & melengkapi struktur database dari cloud/backup. Mengembalikan null jika tidak valid.
+const normalizeWorkspace = (raw: any): WorkspaceDatabase | null => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  if (!raw.teacher || typeof raw.teacher !== 'object') return null;
+  const base = createEmptyDatabase();
+  const merged: any = { ...base, ...raw, teacher: { ...base.teacher, ...raw.teacher } };
+  DATA_COLLECTIONS.forEach((k) => {
+    if (!Array.isArray(merged[k])) merged[k] = [];
+  });
+  return merged as WorkspaceDatabase;
+};
+
+// Sidik isi database (mengabaikan lastUpdated) untuk membandingkan data lokal vs cloud
+const contentFingerprint = (d: WorkspaceDatabase): string => {
+  const n = normalizeWorkspace(d);
+  return n ? JSON.stringify({ ...n, lastUpdated: '' }) : '';
+};
+const sameContent = (a: WorkspaceDatabase, b: WorkspaceDatabase): boolean => {
+  const fa = contentFingerprint(a);
+  return fa !== '' && fa === contentFingerprint(b);
+};
+
+const readStoredNumber = (key: string): number | null => {
+  try {
+    const v = localStorage.getItem(key);
+    if (v === null || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  } catch {
+    return null;
+  }
+};
+const readStoredFlag = (key: string): boolean => {
+  try {
+    return localStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+};
+const writeStored = (key: string, value: string | null): void => {
+  try {
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch {
+    // Metadata sinkronisasi gagal disimpan: sinkronisasi berikutnya akan memeriksa ulang ke cloud.
+  }
+};
+
+// Mengunduh salinan database sebagai file JSON. Mengembalikan false jika gagal.
+const downloadDatabaseFile = (data: WorkspaceDatabase, prefix: string): boolean => {
+  try {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${prefix}_${todayISO()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+class MotoTeachApiService {
+  // Semua operasi data memakai POST (token berada di isi permintaan, bukan di URL).
+  private async post(url: string, body: Record<string, unknown>, timeoutMs: number): Promise<CloudResponse> {
+    if (!url || !url.trim()) {
+      return { success: false, code: 'NOT_CONFIGURED', message: 'URL Google Apps Script belum diisi.' };
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url.trim(), {
+        method: 'POST',
+        mode: 'cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      const text = await res.text();
+      let json: any;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        return {
+          success: false,
+          code: 'INVALID_RESPONSE',
+          message: `Respons server bukan JSON (HTTP ${res.status}). Pastikan deployment Web App diatur "Siapa saja (Anyone)" dan sudah dideploy sebagai versi baru.`,
+        };
+      }
+      return this.normalize(json);
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        return {
+          success: false,
+          code: 'TIMEOUT',
+          message: `Koneksi ke Google Apps Script timeout (>${Math.round(timeoutMs / 1000)} detik).`,
+        };
+      }
+      return {
+        success: false,
+        code: 'NETWORK',
+        message: 'Tidak dapat menghubungi Google Apps Script. Periksa koneksi internet dan URL Web App (akses harus "Siapa saja").',
+      };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  private normalize(json: any): CloudResponse {
+    const message = String(json?.message || '');
+    let code: CloudCode | undefined = json?.code;
+    if (!code) {
+      // Kompatibilitas dengan backend versi lama yang belum mengirim "code"
+      if (json?.success) code = 'OK';
+      else if (/autentikasi gagal|token/i.test(message)) code = 'AUTH_FAILED';
+      else if (/masih kosong/i.test(message)) code = 'EMPTY';
+      else code = 'SERVER_ERROR';
+    }
+    return {
+      success: !!json?.success,
+      code,
+      message,
+      data: json?.data,
+      version: typeof json?.version === 'number' ? json.version : undefined,
+      updatedAt: json?.updatedAt,
+      currentVersion: typeof json?.currentVersion === 'number' ? json.currentVersion : undefined,
+    };
+  }
+
+  async testConnection(url: string, token?: string): Promise<{ ok: boolean; message: string; latencyMs: number }> {
     if (!url || !url.trim()) {
       return { ok: false, message: 'URL Google Apps Script belum diisi.', latencyMs: 0 };
     }
     const start = performance.now();
+    const elapsed = () => Math.round(performance.now() - start);
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10000);
-      const target = `${url}${url.includes('?') ? '&' : '?'}action=health&_ts=${Date.now()}`;
+      const target = `${url.trim()}${url.includes('?') ? '&' : '?'}action=health&_ts=${Date.now()}`;
       const res = await fetch(target, { method: 'GET', mode: 'cors', signal: controller.signal });
       clearTimeout(timeout);
-      const latencyMs = Math.round(performance.now() - start);
       if (!res.ok) {
-        return { ok: false, message: `Server merespons status HTTP ${res.status}`, latencyMs };
+        return { ok: false, message: `Server merespons status HTTP ${res.status}`, latencyMs: elapsed() };
       }
-      const json = await res.json();
-      if (json && json.success) {
-        return { ok: true, message: json.message || 'Terhubung ke Digital Personal Workspace API', latencyMs };
+      let json: any;
+      try {
+        json = JSON.parse(await res.text());
+      } catch {
+        return {
+          ok: false,
+          message: 'Respons bukan JSON. Pastikan deployment Web App diatur "Siapa saja (Anyone)" dan sudah dideploy sebagai versi baru.',
+          latencyMs: elapsed(),
+        };
       }
-      return { ok: false, message: json?.message || 'Respons API tidak valid', latencyMs };
+      if (!json?.success) {
+        return { ok: false, message: json?.message || 'Respons API tidak valid', latencyMs: elapsed() };
+      }
     } catch (err: any) {
-      const latencyMs = Math.round(performance.now() - start);
       return {
         ok: false,
         message:
           err?.name === 'AbortError'
             ? 'Koneksi timeout (>10 detik). Periksa jaringan atau deployment Apps Script.'
             : 'Gagal menghubungi Apps Script (Pastikan akses deployment diatur ke "Anyone" / "Siapa saja").',
-        latencyMs,
+        latencyMs: elapsed(),
       };
     }
+    if (!token || !token.trim()) {
+      return {
+        ok: false,
+        message: 'Server terjangkau, tetapi API Token belum diisi. Isi token lalu uji koneksi lagi.',
+        latencyMs: elapsed(),
+      };
+    }
+    const verify = await this.post(url, { action: 'verify', token: token.trim() }, 15000);
+    if (verify.success) {
+      return { ok: true, message: verify.message || 'Terhubung dan token valid', latencyMs: elapsed() };
+    }
+    return { ok: false, message: verify.message || 'Verifikasi token gagal', latencyMs: elapsed() };
   }
 
-  async pullDatabase(url: string, token?: string): Promise<{ success: boolean; data?: WorkspaceDatabase; message: string }> {
-    if (!url) return { success: false, message: 'URL Apps Script kosong' };
-    let attempt = 0;
-    while (attempt < 2) {
-      attempt++;
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 15000);
-        const query = new URLSearchParams({
-          action: 'pullAll',
-          token: token || '',
-          _ts: String(Date.now()),
-        });
-        const res = await fetch(`${url}?${query.toString()}`, {
-          method: 'GET',
-          mode: 'cors',
-          signal: controller.signal,
-        });
-        clearTimeout(timeout);
-        const json = await res.json();
-        if (json?.success && json?.data) {
-          return { success: true, data: json.data, message: 'Sinkronisasi dari Google Sheets berhasil' };
-        }
-        return { success: false, message: json?.message || 'Data belum tersedia di Google Sheets' };
-      } catch {
-        if (attempt >= 2) {
-          return { success: false, message: 'Gagal menarik data dari Google Sheets' };
-        }
-        await new Promise((r) => setTimeout(r, 1000 * attempt));
-      }
+  async pullDatabase(url: string, token?: string): Promise<CloudResponse> {
+    const body = { action: 'pullAll', token: token || '' };
+    let res = await this.post(url, body, 20000);
+    if (!res.success && (res.code === 'NETWORK' || res.code === 'TIMEOUT')) {
+      await new Promise((r) => setTimeout(r, 1000));
+      res = await this.post(url, body, 20000);
     }
-    return { success: false, message: 'Gagal menarik data' };
+    if (res.success && res.code === 'OK' && !res.data) {
+      return { success: false, code: 'INVALID_RESPONSE', message: 'Server tidak mengirim data database.' };
+    }
+    return res;
   }
 
   async pushDatabase(
     url: string,
     db: WorkspaceDatabase,
-    token?: string
-  ): Promise<{ success: boolean; message: string }> {
-    if (!url) return { success: false, message: 'Tersimpan lokal (Cloud belum dikonfigurasi)' };
-    const lockKey = 'pushAll';
-    if (this.inflightWrites.has(lockKey)) {
-      return { success: false, message: 'Proses sinkronisasi sebelumnya masih berjalan' };
+    token: string | undefined,
+    baseVersion: number | null,
+    opts: { force?: boolean; allowEmpty?: boolean } = {}
+  ): Promise<CloudResponse> {
+    if (!url) {
+      return { success: false, code: 'NOT_CONFIGURED', message: 'Tersimpan lokal (Cloud belum dikonfigurasi)' };
     }
-    this.inflightWrites.add(lockKey);
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 18000);
-      const res = await fetch(url, {
-        method: 'POST',
-        mode: 'cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          action: 'syncAll',
-          token: token || '',
-          payload: db,
-          timestamp: new Date().toISOString(),
-        }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-      const json = await res.json();
-      if (json?.success) {
-        return { success: true, message: json.message || 'Tersinkronisasi ke Google Sheets' };
-      }
-      return { success: false, message: json?.message || 'Gagal menyimpan ke Google Sheets' };
-    } catch {
-      return {
-        success: false,
-        message: 'Tersimpan lokal, namun gagal sinkron ke Google Sheets. Periksa koneksi internet.',
-      };
-    } finally {
-      this.inflightWrites.delete(lockKey);
-    }
+    return this.post(
+      url,
+      {
+        action: 'syncAll',
+        token: token || '',
+        payload: db,
+        baseVersion,
+        force: opts.force === true,
+        allowEmpty: opts.allowEmpty === true,
+        timestamp: new Date().toISOString(),
+      },
+      30000
+    );
   }
 }
 
@@ -955,96 +1105,379 @@ const KopSuratInstansi: React.FC<{ teacher: TeacherProfile; subtitle?: string }>
 // ============================================================================
 // 6. KODE BACKEND APPS SCRIPT SIAP SALIN (UNTUK HALAMAN SETUP GUIDE)
 // ============================================================================
-const APPS_SCRIPT_CODE_BUNDLE = `const SHEET_NAMES = [
+const APPS_SCRIPT_CODE_BUNDLE = `/**
+ * MotoTeach Workspace API v2.0.0 (Fase 2a: integritas data & sinkronisasi)
+ *
+ * Perubahan utama dibanding versi sebelumnya:
+ *  - Token API disimpan di Script Properties (kunci: API_TOKEN), BUKAN di kode.
+ *  - Token dikirim lewat isi POST, tidak lagi lewat query string URL.
+ *  - doGet hanya melayani "health" (tanpa data). Pembacaan data wajib lewat POST + token.
+ *  - Snapshot dipecah ke beberapa baris (batas Google Sheets: 50.000 karakter/sel).
+ *  - Nomor versi + deteksi konflik antarperangkat (baseVersion).
+ *  - Penolakan otomatis jika data kosong akan menimpa cloud yang berisi data.
+ *  - Salinan snapshot sebelumnya (RawSnapshotPrev) dibuat saat penimpaan paksa.
+ *  - Kode respons yang jelas: OK, EMPTY, AUTH_FAILED, CONFLICT, dst.
+ *
+ * Format lama (satu sel PRIMARY_WORKSPACE di RawSnapshot!B2) tetap terbaca (dianggap versi 0).
+ */
+
+const API_VERSION = '2.0.0';
+const TZ = 'Asia/Jakarta';
+const CHUNK_SIZE = 40000;
+const SNAP_KEY = 'PRIMARY_WORKSPACE';
+const META_KEY = 'META';
+const MAX_LOG_ROWS = 500;
+const MAX_PAYLOAD_CHARS = 4000000;
+
+const SHEET_NAMES = [
   'Settings', 'TeacherProfile', 'AcademicYears', 'Calendar',
   'Classes', 'Students', 'Subjects', 'LearningOutcomes',
   'CPAnalysis', 'LearningObjectives', 'ATP', 'PROTA',
   'PROMES', 'TeachingModules', 'Jobsheets', 'TeachingJournal',
   'Attendance', 'Assessments', 'AssessmentItems', 'Grades',
-  'Remedial', 'Enrichment', 'ActivityLogs', 'RawSnapshot'
+  'Remedial', 'Enrichment', 'ActivityLogs', 'RawSnapshot', 'RawSnapshotPrev'
 ];
 
+// [nama sheet, kunci koleksi pada payload]
+const MIRRORS = [
+  ['Classes', 'classes'], ['Students', 'students'], ['Subjects', 'subjects'],
+  ['LearningOutcomes', 'cps'], ['ATP', 'atps'], ['TeachingModules', 'modules'],
+  ['Jobsheets', 'jobsheets'], ['TeachingJournal', 'journals'],
+  ['Attendance', 'attendances'], ['Assessments', 'assessments'], ['Grades', 'grades']
+];
+
+// Koleksi yang dipakai untuk menentukan "payload berisi data atau kosong"
+const CONTENT_KEYS = [
+  'calendar', 'classes', 'students', 'subjects', 'cps', 'cpAnalyses', 'atps',
+  'protas', 'promes', 'modules', 'jobsheets', 'journals', 'attendances',
+  'assessments', 'grades', 'followUps'
+];
+
+/* ------------------------------------------------------------------ */
+/* SETUP & TOKEN                                                       */
+/* ------------------------------------------------------------------ */
+
+/** Jalankan SEKALI dari editor untuk membuat semua sheet. */
 function setupDatabase() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  SHEET_NAMES.forEach(function(name) {
-    let sheet = ss.getSheetByName(name);
-    if (!sheet) sheet = ss.insertSheet(name);
-    if (sheet.getLastRow() === 0) {
-      if (name === 'RawSnapshot') sheet.appendRow(['Key', 'JsonData', 'UpdatedAt']);
-      else if (name === 'ActivityLogs') sheet.appendRow(['ID', 'Timestamp', 'Action', 'Details', 'Status']);
-      else sheet.appendRow(['ID', 'PayloadJSON', 'UpdatedAt']);
-      sheet.getRange(1, 1, 1, sheet.getLastColumn()).setFontWeight('bold').setBackground('#173B70').setFontColor('#FFFFFF');
-      sheet.setFrozenRows(1);
-    }
+  const ss = getSS_();
+  SHEET_NAMES.forEach(function (name) {
+    ensureSheet_(ss, name);
   });
-  return 'Setup Database MotoTeach Workspace Selesai!';
+  return 'Setup Database MotoTeach Workspace selesai!';
 }
+
+/**
+ * Membuat token acak baru dan menyimpannya di Script Properties (API_TOKEN).
+ * Jalankan dari editor, lalu buka Executions/Log untuk menyalin token ke
+ * Pengaturan aplikasi. Menjalankan ulang fungsi ini = rotasi token
+ * (token lama langsung tidak berlaku).
+ */
+function rotateApiToken() {
+  const token = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
+  PropertiesService.getScriptProperties().setProperty('API_TOKEN', token);
+  Logger.log('API_TOKEN BARU (salin ke Pengaturan aplikasi): ' + token);
+  return 'Token baru dibuat. Lihat Execution log untuk menyalinnya.';
+}
+
+function checkAuth_(token) {
+  const expected = PropertiesService.getScriptProperties().getProperty('API_TOKEN');
+  if (!expected) {
+    return { ok: false, code: 'TOKEN_NOT_CONFIGURED',
+      message: 'Autentikasi gagal: API Token belum dikonfigurasi di server (Script Properties, kunci API_TOKEN).' };
+  }
+  if (!token || !safeEquals_(String(token), expected)) {
+    return { ok: false, code: 'AUTH_FAILED', message: 'Autentikasi gagal: API Token tidak valid.' };
+  }
+  return { ok: true };
+}
+
+function safeEquals_(a, b) {
+  if (a.length !== b.length) return false;
+  var diff = 0;
+  for (var i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* ENDPOINT                                                            */
+/* ------------------------------------------------------------------ */
 
 function doGet(e) {
   const action = (e && e.parameter && e.parameter.action) ? e.parameter.action : 'health';
-  try {
-    if (action === 'health') {
-      return jsonResponse({ success: true, message: 'MotoTeach Google Apps Script API Aktif & Sehat' });
-    }
-    if (action === 'pullAll') {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const snapSheet = ss.getSheetByName('RawSnapshot');
-      if (!snapSheet || snapSheet.getLastRow() < 2) {
-        return jsonResponse({ success: false, message: 'Database masih kosong.' });
-      }
-      const rawJson = snapSheet.getRange(2, 2).getValue();
-      return jsonResponse({ success: true, message: 'Data berhasil dimuat', data: rawJson ? JSON.parse(rawJson) : null });
-    }
-    return jsonResponse({ success: false, message: 'Endpoint tidak dikenali' });
-  } catch (err) {
-    return jsonResponse({ success: false, message: err.toString() });
+  if (action === 'health') {
+    return respond_({ success: true, code: 'OK', message: 'MotoTeach Google Apps Script API aktif', apiVersion: API_VERSION });
   }
+  return fail_('METHOD_NOT_ALLOWED', 'Gunakan permintaan POST dengan token untuk membaca atau menulis data.');
 }
 
 function doPost(e) {
+  var body;
+  try {
+    body = JSON.parse(e.postData.contents);
+  } catch (err) {
+    return fail_('INVALID_REQUEST', 'Permintaan tidak valid (bukan JSON).');
+  }
+  if (!body || typeof body !== 'object') return fail_('INVALID_REQUEST', 'Permintaan tidak valid.');
+
+  const auth = checkAuth_(body.token);
+  if (!auth.ok) return fail_(auth.code, auth.message);
+
   const lock = LockService.getScriptLock();
   try {
-    lock.waitLock(15000);
-    const body = JSON.parse(e.postData.contents);
-    if (body.action === 'syncAll' && body.payload) {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      let snapSheet = ss.getSheetByName('RawSnapshot');
-      if (!snapSheet) { setupDatabase(); snapSheet = ss.getSheetByName('RawSnapshot'); }
-      const now = new Date().toISOString();
-      snapSheet.getRange(2, 1, 1, 3).setValues([['PRIMARY_WORKSPACE', JSON.stringify(body.payload), now]]);
-      syncRelationalSheet(ss, 'Classes', body.payload.classes || []);
-      syncRelationalSheet(ss, 'Students', body.payload.students || []);
-      syncRelationalSheet(ss, 'Subjects', body.payload.subjects || []);
-      syncRelationalSheet(ss, 'LearningOutcomes', body.payload.cps || []);
-      syncRelationalSheet(ss, 'ATP', body.payload.atps || []);
-      syncRelationalSheet(ss, 'TeachingModules', body.payload.modules || []);
-      syncRelationalSheet(ss, 'Jobsheets', body.payload.jobsheets || []);
-      syncRelationalSheet(ss, 'TeachingJournal', body.payload.journals || []);
-      syncRelationalSheet(ss, 'Attendance', body.payload.attendances || []);
-      syncRelationalSheet(ss, 'Assessments', body.payload.assessments || []);
-      syncRelationalSheet(ss, 'Grades', body.payload.grades || []);
-      return jsonResponse({ success: true, message: 'Tersinkronisasi ke Google Sheets pada ' + now });
-    }
-    return jsonResponse({ success: false, message: 'Aksi tidak valid' });
+    lock.waitLock(20000);
   } catch (err) {
-    return jsonResponse({ success: false, message: err.toString() });
+    return fail_('BUSY', 'Server sedang memproses permintaan lain. Coba lagi sebentar.');
+  }
+
+  try {
+    const ss = getSS_();
+    if (body.action === 'verify') return handleVerify_(ss);
+    if (body.action === 'pullAll') return handlePull_(ss);
+    if (body.action === 'syncAll') return handleSync_(ss, body);
+    return fail_('INVALID_REQUEST', 'Aksi tidak dikenali.');
+  } catch (err) {
+    return fail_('SERVER_ERROR', 'Kesalahan server: ' + String(err));
   } finally {
     lock.releaseLock();
   }
 }
 
-function syncRelationalSheet(ss, sheetName, records) {
-  const sheet = ss.getSheetByName(sheetName);
-  if (!sheet) return;
-  const now = new Date().toISOString();
-  if (sheet.getLastRow() > 1) sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).clearContent();
-  if (records.length > 0) {
-    const rows = records.map(function(item) { return [item.id || '', JSON.stringify(item), now]; });
-    sheet.getRange(2, 1, rows.length, 3).setValues(rows);
+function handleVerify_(ss) {
+  const snap = readSnapshot_(ss);
+  return ok_({ code: 'OK', message: 'Token valid. Terhubung ke Spreadsheet "' + ss.getName() + '".',
+    version: snap.state === 'OK' ? snap.version : 0, apiVersion: API_VERSION });
+}
+
+function handlePull_(ss) {
+  const snap = readSnapshot_(ss);
+  if (snap.state === 'EMPTY') {
+    return ok_({ code: 'EMPTY', message: 'Database cloud belum berisi data.', version: 0 });
+  }
+  if (snap.state === 'CORRUPT') {
+    return fail_('SERVER_CORRUPT', snap.message);
+  }
+  return ok_({ code: 'OK', message: 'Data berhasil dimuat', data: snap.data, version: snap.version, updatedAt: snap.updatedAt });
+}
+
+function handleSync_(ss, body) {
+  const payload = body.payload;
+  const check = validatePayload_(payload);
+  if (!check.ok) return fail_('INVALID_REQUEST', check.message);
+
+  const force = body.force === true;
+  const baseVersion = (body.baseVersion === undefined || body.baseVersion === null) ? null : Number(body.baseVersion);
+  const current = readSnapshot_(ss);
+  const curVersion = current.state === 'OK' ? current.version : 0;
+
+  if (!force) {
+    if (current.state === 'CORRUPT') {
+      return fail_('SERVER_CORRUPT', current.message);
+    }
+    if (baseVersion !== curVersion) {
+      return respond_({ success: false, code: 'CONFLICT', currentVersion: curVersion,
+        updatedAt: current.state === 'OK' ? current.updatedAt : null,
+        message: 'Data cloud sudah berubah sejak sinkronisasi terakhir perangkat ini.' });
+    }
+    if (current.state === 'OK' && hasContent_(current.data) && !hasContent_(payload) && body.allowEmpty !== true) {
+      return fail_('EMPTY_PAYLOAD', 'Ditolak: data yang dikirim kosong, sedangkan cloud berisi data. Gunakan Pull, atau timpa paksa secara sadar dari Pengaturan.');
+    }
+  }
+
+  if (force && current.state !== 'EMPTY') backupToPrev_(ss);
+
+  const now = nowStamp_();
+  const newVersion = curVersion + 1;
+  writeSnapshot_(ss, JSON.stringify(payload), newVersion, now);
+
+  const mirrorErrors = [];
+  MIRRORS.forEach(function (m) {
+    try {
+      mirrorSheet_(ss, m[0], Array.isArray(payload[m[1]]) ? payload[m[1]] : [], now);
+    } catch (err) {
+      mirrorErrors.push(m[0] + ': ' + String(err));
+    }
+  });
+
+  appendLog_(ss, force ? 'syncAll(force)' : 'syncAll', 'versi ' + newVersion,
+    mirrorErrors.length ? 'MIRROR_ERROR' : 'OK');
+
+  return ok_({ code: 'OK', version: newVersion, updatedAt: now, mirrorErrors: mirrorErrors,
+    message: 'Tersinkronisasi ke Google Sheets pada ' + now });
+}
+
+/* ------------------------------------------------------------------ */
+/* SNAPSHOT                                                            */
+/* ------------------------------------------------------------------ */
+
+function readSnapshot_(ss) {
+  const sheet = ss.getSheetByName('RawSnapshot');
+  if (!sheet || sheet.getLastRow() < 2) return { state: 'EMPTY' };
+
+  const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).getValues();
+  var meta = null;
+  const chunks = [];
+  values.forEach(function (r) {
+    const key = String(r[0]);
+    if (key === META_KEY) {
+      try { meta = JSON.parse(String(r[1])); } catch (err) { meta = null; }
+    } else if (key === SNAP_KEY) {
+      chunks.push({ idx: 0, text: String(r[1] === null ? '' : r[1]), at: String(r[2]) });
+    } else if (key.indexOf(SNAP_KEY + '#') === 0) {
+      chunks.push({ idx: parseInt(key.split('#')[1], 10) || 0, text: String(r[1] === null ? '' : r[1]), at: String(r[2]) });
+    }
+  });
+
+  if (!chunks.length) return { state: 'EMPTY' };
+  chunks.sort(function (a, b) { return a.idx - b.idx; });
+
+  if (meta && meta.chunks && Number(meta.chunks) !== chunks.length) {
+    return { state: 'CORRUPT', message: 'Snapshot cloud tidak lengkap (jumlah potongan tidak cocok). Cek sheet RawSnapshot dan RawSnapshotPrev.' };
+  }
+
+  const json = chunks.map(function (c) { return c.text; }).join('');
+  if (!json) return { state: 'EMPTY' };
+
+  var data;
+  try {
+    data = JSON.parse(json);
+  } catch (err) {
+    return { state: 'CORRUPT', message: 'Snapshot cloud tidak dapat dibaca (JSON rusak). Cek sheet RawSnapshot dan RawSnapshotPrev.' };
+  }
+  return {
+    state: 'OK',
+    data: data,
+    version: meta ? (Number(meta.version) || 0) : 0,
+    updatedAt: meta ? meta.updatedAt : chunks[0].at
+  };
+}
+
+function writeSnapshot_(ss, json, version, now) {
+  const sheet = ensureSheet_(ss, 'RawSnapshot');
+  const chunks = [];
+  for (var i = 0; i < json.length; i += CHUNK_SIZE) chunks.push(json.substring(i, i + CHUNK_SIZE));
+
+  const rows = [[META_KEY, JSON.stringify({ version: version, updatedAt: now, chunks: chunks.length, chars: json.length }), now]];
+  chunks.forEach(function (c, i) {
+    rows.push([SNAP_KEY + '#' + pad4_(i + 1), c, now]);
+  });
+
+  ensureRows_(sheet, rows.length + 1);
+  const range = sheet.getRange(2, 1, rows.length, 3);
+  range.setNumberFormat('@');          // paksa teks agar potongan JSON tidak diubah menjadi angka/tanggal
+  range.setValues(rows);
+
+  const last = sheet.getLastRow();
+  if (last > rows.length + 1) {          // hapus sisa potongan lama setelah data baru tertulis
+    sheet.getRange(rows.length + 2, 1, last - (rows.length + 1), 3).clearContent();
   }
 }
 
-function jsonResponse(obj) {
+function backupToPrev_(ss) {
+  const src = ss.getSheetByName('RawSnapshot');
+  if (!src || src.getLastRow() < 2) return;
+  const dst = ensureSheet_(ss, 'RawSnapshotPrev');
+  const vals = src.getRange(2, 1, src.getLastRow() - 1, 3).getValues();
+  if (dst.getLastRow() > 1) dst.getRange(2, 1, dst.getLastRow() - 1, 3).clearContent();
+  ensureRows_(dst, vals.length + 1);
+  const range = dst.getRange(2, 1, vals.length, 3);
+  range.setNumberFormat('@');
+  range.setValues(vals);
+}
+
+/* ------------------------------------------------------------------ */
+/* SHEET RELASIONAL (cermin untuk dibaca manusia)                      */
+/* ------------------------------------------------------------------ */
+
+function mirrorSheet_(ss, sheetName, records, now) {
+  const sheet = ensureSheet_(ss, sheetName);
+  if (sheet.getLastRow() > 1) sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).clearContent();
+  if (!records.length) return;
+  const rows = records.map(function (item) {
+    var text = JSON.stringify(item);
+    if (text.length > 49000) {
+      text = JSON.stringify({ id: item && item.id, catatan: 'Data terlalu panjang untuk satu sel; lihat sheet RawSnapshot.' });
+    }
+    return [item && item.id ? item.id : '', text, now];
+  });
+  ensureRows_(sheet, rows.length + 1);
+  const range = sheet.getRange(2, 1, rows.length, 3);
+  range.setNumberFormat('@');
+  range.setValues(rows);
+}
+
+/* ------------------------------------------------------------------ */
+/* UTILITAS                                                            */
+/* ------------------------------------------------------------------ */
+
+function getSS_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) throw new Error('Script ini tidak terikat ke Spreadsheet. Buat dari Spreadsheet: Ekstensi > Apps Script.');
+  return ss;
+}
+
+function ensureSheet_(ss, name) {
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) sheet = ss.insertSheet(name);
+  if (sheet.getLastRow() === 0) {
+    if (name === 'RawSnapshot' || name === 'RawSnapshotPrev') sheet.appendRow(['Key', 'JsonData', 'UpdatedAt']);
+    else if (name === 'ActivityLogs') sheet.appendRow(['ID', 'Timestamp', 'Action', 'Details', 'Status']);
+    else sheet.appendRow(['ID', 'PayloadJSON', 'UpdatedAt']);
+    sheet.getRange(1, 1, 1, sheet.getLastColumn()).setFontWeight('bold').setBackground('#173B70').setFontColor('#FFFFFF');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function ensureRows_(sheet, neededRows) {
+  const max = sheet.getMaxRows();
+  if (max < neededRows) sheet.insertRowsAfter(max, neededRows - max);
+}
+
+function appendLog_(ss, action, details, status) {
+  try {
+    const sheet = ensureSheet_(ss, 'ActivityLogs');
+    sheet.appendRow([Utilities.getUuid(), nowStamp_(), action, details, status]);
+    const last = sheet.getLastRow();
+    if (last > MAX_LOG_ROWS + 100) sheet.deleteRows(2, last - MAX_LOG_ROWS - 1);
+  } catch (err) {
+    // Log bersifat pelengkap; kegagalan mencatat log tidak boleh menggagalkan sinkronisasi.
+  }
+}
+
+function validatePayload_(p) {
+  if (!p || typeof p !== 'object' || Array.isArray(p)) return { ok: false, message: 'Payload harus berupa objek.' };
+  if (!p.teacher || typeof p.teacher !== 'object') return { ok: false, message: 'Payload tidak memiliki profil guru (teacher).' };
+  for (var i = 0; i < CONTENT_KEYS.length; i++) {
+    const k = CONTENT_KEYS[i];
+    if (p[k] !== undefined && !Array.isArray(p[k])) return { ok: false, message: 'Koleksi "' + k + '" harus berupa array.' };
+  }
+  if (JSON.stringify(p).length > MAX_PAYLOAD_CHARS) return { ok: false, message: 'Payload terlalu besar.' };
+  return { ok: true };
+}
+
+function hasContent_(p) {
+  if (!p) return false;
+  return CONTENT_KEYS.some(function (k) { return Array.isArray(p[k]) && p[k].length > 0; });
+}
+
+function nowStamp_() {
+  return Utilities.formatDate(new Date(), TZ, "yyyy-MM-dd'T'HH:mm:ssXXX");
+}
+
+function pad4_(n) {
+  return ('0000' + n).slice(-4);
+}
+
+function ok_(obj) {
+  obj.success = true;
+  return respond_(obj);
+}
+
+function fail_(code, message) {
+  return respond_({ success: false, code: code, message: message });
+}
+
+function respond_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }`;
 
@@ -1083,6 +1516,9 @@ interface ConfirmState {
   title: string;
   message: string;
   onConfirm: () => void;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  onCancel?: () => void;
 }
 
 export default function App() {
@@ -1141,11 +1577,16 @@ export default function App() {
     setToasts((prev) => [...prev, { id, type, text }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
+    }, type === 'error' ? 9000 : 4000);
   };
 
-  const askConfirm = (title: string, message: string, onConfirm: () => void) => {
-    setConfirmModal({ open: true, title, message, onConfirm });
+  const askConfirm = (
+    title: string,
+    message: string,
+    onConfirm: () => void,
+    opts?: { confirmLabel?: string; cancelLabel?: string; onCancel?: () => void }
+  ) => {
+    setConfirmModal({ open: true, title, message, onConfirm, ...opts });
   };
 
   useEffect(() => {
@@ -1154,73 +1595,362 @@ export default function App() {
     } catch {}
   }, [settings]);
 
+  // ==========================================================================
+  // SINKRONISASI CLOUD (Fase 2a)
+  // Prinsip: kegagalan membaca cloud TIDAK PERNAH dianggap "cloud kosong".
+  // Cloud hanya ditulis jika (a) cloud terbukti kosong, atau (b) versi cloud masih
+  // sama dengan versi dasar perangkat ini. Selain itu pengguna diminta memilih.
+  // ==========================================================================
+  const dbRef = useRef<WorkspaceDatabase>(db);
+  const settingsRef = useRef<AppSettings>(settings);
+  dbRef.current = db;
+  settingsRef.current = settings;
+
+  const cloudVersionRef = useRef<number | null>(readStoredNumber(APP_CONFIG.cloudVersionKey));
+  const dirtyRef = useRef<boolean>(readStoredFlag(APP_CONFIG.dirtyKey));
+  const changeCounterRef = useRef(0);
+  const syncingRef = useRef(false);
+  const queuedRef = useRef(false);
+  const pausedRef = useRef<'auth' | 'empty' | 'conflict' | null>(null);
+  const lastSyncOkRef = useRef(true);
+  const allowEmptyRef = useRef(false);
+  const storageWarnedRef = useRef(false);
+  const lastErrorToastRef = useRef(0);
+  const [syncDetail, setSyncDetail] = useState('');
+
   useEffect(() => {
     try {
       localStorage.setItem(APP_CONFIG.storageKey, JSON.stringify(db));
-    } catch {}
+      storageWarnedRef.current = false;
+    } catch {
+      if (!storageWarnedRef.current) {
+        storageWarnedRef.current = true;
+        showToast(
+          'error',
+          'Penyimpanan di browser GAGAL (kuota penuh atau mode privat). Perubahan terbaru bisa hilang jika halaman ditutup. Segera unduh backup JSON di Pengaturan.'
+        );
+      }
+    }
   }, [db]);
 
-  // Sinkronisasi otomatis saat login berhasil
-  useEffect(() => {
-    if (!isAuthenticated || !settings.appsScriptUrl) return;
-    let cancelled = false;
-    (async () => {
-      setSyncStatus('syncing');
-      const pullRes = await apiService.pullDatabase(settings.appsScriptUrl, settings.apiToken);
-      if (cancelled) return;
-      if (pullRes.success && pullRes.data && pullRes.data.teacher) {
-        setDb(pullRes.data);
-        setSyncStatus('connected');
-        setLastSyncTime(new Date().toLocaleTimeString('id-ID'));
-      } else {
-        const pushRes = await apiService.pushDatabase(settings.appsScriptUrl, db, settings.apiToken);
-        if (cancelled) return;
-        if (pushRes.success) {
-          setSyncStatus('connected');
-          setLastSyncTime(new Date().toLocaleTimeString('id-ID'));
-        } else {
-          setSyncStatus('error');
+  const markDirty = (v: boolean) => {
+    dirtyRef.current = v;
+    writeStored(APP_CONFIG.dirtyKey, v ? '1' : null);
+  };
+
+  const setCloudVersion = (v: number | null | undefined) => {
+    const n = typeof v === 'number' && Number.isFinite(v) ? v : null;
+    cloudVersionRef.current = n;
+    writeStored(APP_CONFIG.cloudVersionKey, n === null ? null : String(n));
+  };
+
+  const markSynced = () => {
+    lastSyncOkRef.current = true;
+    setSyncStatus('connected');
+    setSyncDetail('');
+    setLastSyncTime(new Date().toLocaleTimeString('id-ID'));
+  };
+
+  const notifySyncError = (detail: string, forceToast = false) => {
+    lastSyncOkRef.current = false;
+    setSyncStatus('error');
+    setSyncDetail(detail);
+    const now = Date.now();
+    if (forceToast || now - lastErrorToastRef.current > 15000) {
+      lastErrorToastRef.current = now;
+      showToast('error', detail);
+    }
+  };
+
+  const adoptCloud = (remote: WorkspaceDatabase, version: number) => {
+    dbRef.current = remote;
+    setDb(remote);
+    setCloudVersion(version);
+    markDirty(false);
+    markSynced();
+  };
+
+  const handleFailure = (res: CloudResponse, manual: boolean) => {
+    if (res.code === 'AUTH_FAILED' || res.code === 'TOKEN_NOT_CONFIGURED') {
+      pausedRef.current = 'auth';
+      notifySyncError(`${res.message} Buka Pengaturan & Backup untuk mengisi API Token.`, true);
+      return;
+    }
+    if (res.code === 'EMPTY_PAYLOAD') {
+      pausedRef.current = 'empty';
+      notifySyncError(res.message, true);
+      return;
+    }
+    const safe =
+      res.code === 'NETWORK' || res.code === 'TIMEOUT' || res.code === 'INVALID_RESPONSE'
+        ? ' Data tetap aman di perangkat ini dan tidak ada yang ditimpa di cloud.'
+        : '';
+    notifySyncError((res.message || 'Sinkronisasi gagal.') + safe, manual);
+  };
+
+  const resolveConflict = (remote: WorkspaceDatabase, remoteVersion: number) => {
+    pausedRef.current = 'conflict';
+    lastSyncOkRef.current = false;
+    setSyncStatus('error');
+    setSyncDetail('Data lokal dan cloud berbeda. Sinkronisasi ditunda sampai Anda memilih.');
+    askConfirm(
+      'Data Lokal dan Cloud Berbeda',
+      'Perubahan di perangkat ini belum tersinkron, sedangkan data di Google Sheets sudah berubah (mungkin dari perangkat lain). ' +
+        'Pilih "Pakai Data Cloud" untuk mengganti data di perangkat ini; salinan data lokal akan diunduh otomatis sebagai backup. ' +
+        'Pilih "Simpan Lokal" untuk tetap memakai data lokal: cloud TIDAK akan ditimpa dan sinkronisasi otomatis ditunda sampai Anda menyelesaikannya di Pengaturan & Backup.',
+      () => {
+        if (!downloadDatabaseFile(dbRef.current, 'MotoTeach_Backup_Lokal_Sebelum_Ganti')) {
+          showToast('error', 'Gagal membuat backup lokal, penggantian data dibatalkan.');
+          return;
         }
+        adoptCloud(remote, remoteVersion);
+        pausedRef.current = null;
+        showToast('info', 'Data cloud dipakai. Salinan data lokal sudah diunduh sebagai backup.');
+      },
+      { confirmLabel: 'Pakai Data Cloud', cancelLabel: 'Simpan Lokal' }
+    );
+  };
+
+  // Dipanggil saat syncingRef sudah true.
+  const pushLoop = async (manual: boolean, force: boolean) => {
+    const s = settingsRef.current;
+    let useForce = force;
+    let last: CloudResponse | null = null;
+    do {
+      queuedRef.current = false;
+      const counterBefore = changeCounterRef.current;
+      const res = await apiService.pushDatabase(s.appsScriptUrl, dbRef.current, s.apiToken, cloudVersionRef.current, {
+        force: useForce,
+        allowEmpty: allowEmptyRef.current,
+      });
+      useForce = false;
+      last = res;
+      if (!res.success) break;
+      allowEmptyRef.current = false;
+      setCloudVersion(res.version);
+      if (changeCounterRef.current === counterBefore) markDirty(false);
+      markSynced();
+    } while (queuedRef.current);
+
+    if (last && !last.success) {
+      if (last.code === 'CONFLICT') {
+        await reconcile(manual, false);
+        return;
       }
-    })();
-    return () => {
-      cancelled = true;
+      handleFailure(last, manual);
+      return;
+    }
+    if (manual) showToast('success', 'Data berhasil disinkronkan ke Google Sheets!');
+  };
+
+  // Tarik data cloud lalu putuskan tindakan yang aman. Dipanggil saat syncingRef sudah true.
+  const reconcile = async (manual: boolean, allowPush: boolean) => {
+    const s = settingsRef.current;
+    const pull = await apiService.pullDatabase(s.appsScriptUrl, s.apiToken);
+
+    if (pull.code === 'EMPTY') {
+      // Cloud TERBUKTI kosong (bukan gagal dibaca): aman untuk inisialisasi.
+      setCloudVersion(0);
+      if (!hasUserData(dbRef.current)) {
+        markSynced();
+        if (manual) showToast('info', 'Cloud dan perangkat ini sama-sama masih kosong.');
+        return;
+      }
+      if (!allowPush) {
+        notifySyncError('Data cloud berubah saat sinkronisasi berlangsung. Coba sinkronkan lagi.', manual);
+        return;
+      }
+      await pushLoop(manual, false);
+      return;
+    }
+
+    if (!pull.success) {
+      handleFailure(pull, manual);
+      return;
+    }
+
+    const remote = normalizeWorkspace(pull.data);
+    if (!remote) {
+      notifySyncError('Format data di cloud tidak dikenali. Tidak ada data yang diubah.', true);
+      return;
+    }
+
+    const remoteVersion = typeof pull.version === 'number' ? pull.version : 0;
+    const localVersion = cloudVersionRef.current;
+    const local = dbRef.current;
+
+    if (sameContent(remote, local)) {
+      setCloudVersion(remoteVersion);
+      markDirty(false);
+      markSynced();
+      if (manual) showToast('success', 'Data perangkat ini sudah sama dengan cloud.');
+      return;
+    }
+
+    const localNeedsPush = dirtyRef.current || (localVersion === null && hasUserData(local));
+    if (!localNeedsPush) {
+      adoptCloud(remote, remoteVersion);
+      if (manual) showToast('success', 'Data terbaru dari Google Sheets berhasil dimuat.');
+      return;
+    }
+
+    if (localVersion !== null && localVersion === remoteVersion && allowPush) {
+      await pushLoop(manual, false);
+      return;
+    }
+
+    resolveConflict(remote, remoteVersion);
+  };
+
+  const withSyncLock = async (fn: () => Promise<void>, onBusy?: () => void) => {
+    if (syncingRef.current) {
+      queuedRef.current = true;
+      if (onBusy) onBusy();
+      return;
+    }
+    syncingRef.current = true;
+    setSyncStatus('syncing');
+    try {
+      await fn();
+    } catch (err: any) {
+      notifySyncError(`Terjadi kesalahan tak terduga saat sinkronisasi: ${err?.message || String(err)}`, true);
+    } finally {
+      syncingRef.current = false;
+      if (queuedRef.current && dirtyRef.current && !pausedRef.current && lastSyncOkRef.current) {
+        queuedRef.current = false;
+        setTimeout(() => {
+          void autoSyncAfterEdit();
+        }, 0);
+      }
+    }
+  };
+
+  const runSync = (manual: boolean): Promise<void> => {
+    if (!settingsRef.current.appsScriptUrl) {
+      if (manual) showToast('error', 'URL Google Apps Script belum diisi.');
+      return Promise.resolve();
+    }
+    if (manual) pausedRef.current = null;
+    return withSyncLock(
+      () => reconcile(manual, true),
+      () => {
+        if (manual) showToast('info', 'Sinkronisasi sedang berjalan...');
+      }
+    );
+  };
+
+  const autoSyncAfterEdit = async () => {
+    if (!settingsRef.current.appsScriptUrl) return;
+    if (pausedRef.current) {
+      notifySyncError(
+        'Sinkronisasi otomatis ditunda. Perubahan tetap tersimpan di perangkat ini. Buka Pengaturan & Backup untuk menyelesaikannya.'
+      );
+      return;
+    }
+    if (cloudVersionRef.current === null) {
+      // Belum pernah memastikan status cloud: wajib tarik dulu, jangan langsung menulis.
+      await runSync(false);
+      return;
+    }
+    await withSyncLock(() => pushLoop(false, false));
+  };
+
+  const handlePullFromCloud = async () => {
+    const s = settingsRef.current;
+    if (!s.appsScriptUrl) {
+      showToast('error', 'Masukkan URL Apps Script terlebih dahulu');
+      return;
+    }
+    await withSyncLock(
+      async () => {
+        const pull = await apiService.pullDatabase(s.appsScriptUrl, s.apiToken);
+        if (pull.code === 'EMPTY') {
+          setCloudVersion(0);
+          markSynced();
+          showToast('info', 'Cloud masih kosong. Tidak ada data yang ditarik.');
+          return;
+        }
+        if (!pull.success) {
+          handleFailure(pull, true);
+          return;
+        }
+        const remote = normalizeWorkspace(pull.data);
+        if (!remote) {
+          notifySyncError('Format data di cloud tidak dikenali. Tidak ada data yang diubah.', true);
+          return;
+        }
+        const remoteVersion = typeof pull.version === 'number' ? pull.version : 0;
+        const apply = () => {
+          if (dirtyRef.current && !downloadDatabaseFile(dbRef.current, 'MotoTeach_Backup_Lokal_Sebelum_Pull')) {
+            showToast('error', 'Gagal membuat backup lokal, penarikan data dibatalkan.');
+            return;
+          }
+          adoptCloud(remote, remoteVersion);
+          pausedRef.current = null;
+          showToast('success', 'Data berhasil ditarik dari Google Sheets!');
+        };
+        if (dirtyRef.current && !sameContent(remote, dbRef.current)) {
+          setSyncStatus('idle');
+          askConfirm(
+            'Ganti Data Lokal dengan Data Cloud?',
+            'Ada perubahan di perangkat ini yang belum tersinkron dan akan diganti oleh data cloud. Salinan data lokal akan diunduh otomatis sebagai backup.',
+            apply,
+            { confirmLabel: 'Ya, Ganti' }
+          );
+        } else {
+          apply();
+        }
+      },
+      () => showToast('info', 'Sinkronisasi sedang berjalan...')
+    );
+  };
+
+  const handleForcePush = () => {
+    const emptyWarning = hasUserData(dbRef.current)
+      ? ''
+      : ' PERINGATAN: data di perangkat ini KOSONG, sehingga cloud akan dikosongkan.';
+    askConfirm(
+      'Timpa Data Cloud dengan Data Lokal?',
+      'Seluruh data di Google Sheets akan DIGANTI dengan data di perangkat ini, termasuk perubahan dari perangkat lain yang belum Anda ambil. ' +
+        'Server menyimpan salinan data cloud sebelumnya di sheet RawSnapshotPrev. Lanjutkan hanya jika Anda yakin data di perangkat ini yang benar.' +
+        emptyWarning,
+      () => {
+        pausedRef.current = null;
+        void withSyncLock(
+          () => pushLoop(true, true),
+          () => showToast('info', 'Sinkronisasi sedang berjalan...')
+        );
+      },
+      { confirmLabel: 'Ya, Timpa Cloud' }
+    );
+  };
+
+  // Sinkronisasi otomatis saat login berhasil / aplikasi dibuka
+  useEffect(() => {
+    if (!isAuthenticated || !settings.appsScriptUrl || !settings.autoSyncOnLoad) return;
+    void runSync(false);
+  }, [isAuthenticated]);
+
+  // Setelah kembali online, kirim perubahan yang tertunda
+  useEffect(() => {
+    const onOnline = () => {
+      if (isAuthenticated && dirtyRef.current && !pausedRef.current) void autoSyncAfterEdit();
     };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
   }, [isAuthenticated]);
 
   const updateDatabase = async (updater: (prev: WorkspaceDatabase) => WorkspaceDatabase, toastMsg?: string) => {
-    const nextDb = { ...updater(db), lastUpdated: new Date().toISOString() };
+    const nextDb = { ...updater(dbRef.current), lastUpdated: new Date().toISOString() };
+    dbRef.current = nextDb;
+    changeCounterRef.current += 1;
+    markDirty(true);
     setDb(nextDb);
     if (toastMsg) showToast('success', toastMsg);
-
-    if (settings.appsScriptUrl) {
-      setSyncStatus('syncing');
-      const res = await apiService.pushDatabase(settings.appsScriptUrl, nextDb, settings.apiToken);
-      if (res.success) {
-        setSyncStatus('connected');
-        setLastSyncTime(new Date().toLocaleTimeString('id-ID'));
-      } else {
-        setSyncStatus('error');
-      }
-    }
+    await autoSyncAfterEdit();
   };
 
-  const handleManualSync = async () => {
-    if (!settings.appsScriptUrl) {
-      showToast('error', 'URL Google Apps Script belum diisi.');
-      return;
-    }
-    setSyncStatus('syncing');
-    const res = await apiService.pushDatabase(settings.appsScriptUrl, db, settings.apiToken);
-    if (res.success) {
-      setSyncStatus('connected');
-      setLastSyncTime(new Date().toLocaleTimeString('id-ID'));
-      showToast('success', 'Data berhasil disinkronkan ke Google Sheets!');
-    } else {
-      setSyncStatus('error');
-      showToast('error', res.message);
-    }
-  };
+  const handleManualSync = () => runSync(true);
 
   const stats = useMemo(() => {
     const activeStudents = db.students.filter((s) => s.statusAktif === 'Aktif').length;
@@ -1685,38 +2415,31 @@ export default function App() {
             db={db}
             syncStatus={syncStatus}
             lastSyncTime={lastSyncTime}
+            syncDetail={syncDetail}
             onUpdateSettings={(next) => {
+              const connectionChanged =
+                next.appsScriptUrl !== settings.appsScriptUrl || next.apiToken !== settings.apiToken;
+              settingsRef.current = next;
               setSettings(next);
+              pausedRef.current = null;
               showToast('success', 'Pengaturan workspace disimpan');
+              if (connectionChanged && next.appsScriptUrl) {
+                setTimeout(() => {
+                  void runSync(false);
+                }, 0);
+              }
             }}
-            onTestConnection={async (url) => {
-              const res = await apiService.testConnection(url);
+            onTestConnection={async (url, token) => {
+              const res = await apiService.testConnection(url, token);
               if (res.ok) {
-                setSyncStatus('connected');
                 showToast('success', `${res.message} (${res.latencyMs} ms)`);
               } else {
-                setSyncStatus('error');
                 showToast('error', res.message);
               }
             }}
             onSyncNow={handleManualSync}
-            onPullFromCloud={async () => {
-              if (!settings.appsScriptUrl) {
-                showToast('error', 'Masukkan URL Apps Script terlebih dahulu');
-                return;
-              }
-              setSyncStatus('syncing');
-              const res = await apiService.pullDatabase(settings.appsScriptUrl, settings.apiToken);
-              if (res.success && res.data) {
-                setDb(res.data);
-                setSyncStatus('connected');
-                setLastSyncTime(new Date().toLocaleTimeString('id-ID'));
-                showToast('success', 'Data berhasil ditarik dari Google Sheets!');
-              } else {
-                setSyncStatus('error');
-                showToast('error', res.message);
-              }
-            }}
+            onPullFromCloud={handlePullFromCloud}
+            onForcePush={handleForcePush}
             onRestoreDatabase={(restored) =>
               askConfirm(
                 'Pulihkan Database dari File Backup?',
@@ -1731,8 +2454,15 @@ export default function App() {
                 'Reset Seluruh Data Lokal?',
                 'Semua data di browser ini akan dikosongkan. Pastikan Anda sudah melakukan backup terlebih dahulu.',
                 () => {
-                  setDb(createEmptyDatabase());
-                  showToast('info', 'Workspace lokal telah direset ke kondisi kosong.');
+                  const empty = createEmptyDatabase();
+                  dbRef.current = empty;
+                  setDb(empty);
+                  // Perangkat ini kini kosong: lupakan versi cloud agar perubahan berikutnya
+                  // tidak menimpa data cloud tanpa pemeriksaan terlebih dahulu.
+                  setCloudVersion(null);
+                  markDirty(false);
+                  pausedRef.current = null;
+                  showToast('info', 'Workspace lokal telah direset ke kondisi kosong. Data di cloud tidak diubah.');
                 }
               )
             }
@@ -1916,21 +2646,25 @@ export default function App() {
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <button
               onClick={handleManualSync}
-              title={`Status: ${syncStatus} (${lastSyncTime}) — Klik untuk sinkron paksa`}
+              title={`Status: ${syncStatus} (${lastSyncTime})${syncDetail ? ' — ' + syncDetail : ''} — Klik untuk sinkronkan`}
               className={`hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border transition-colors ${
                 syncStatus === 'connected'
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
                   : syncStatus === 'syncing'
                   ? 'bg-blue-50 text-blue-700 border-blue-200'
+                  : syncStatus === 'error'
+                  ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
                   : 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-slate-800 dark:text-amber-300 dark:border-slate-700'
               }`}
             >
-              {syncStatus === 'connected' ? <Cloud size={15} /> : <Database size={15} />}
+              {syncStatus === 'connected' ? <Cloud size={15} /> : syncStatus === 'error' ? <AlertTriangle size={15} /> : <Database size={15} />}
               <span>
                 {syncStatus === 'connected'
                   ? `Cloud Aktif (${lastSyncTime})`
                   : syncStatus === 'syncing'
                   ? 'Menyinkronkan...'
+                  : syncStatus === 'error'
+                  ? 'Gagal Sinkron'
                   : 'Sinkronisasi Siap'}
               </span>
             </button>
@@ -1973,8 +2707,8 @@ export default function App() {
             <button
               onClick={() =>
                 askConfirm('Hapus Data Demo?', 'Seluruh data demo akan dihapus dan workspace menjadi kosong.', () => {
-                  setDb(createEmptyDatabase());
-                  showToast('info', 'Data demo dihapus.');
+                  allowEmptyRef.current = true; // penghapusan disengaja: izinkan push data kosong
+                  void updateDatabase(() => createEmptyDatabase(), 'Data demo dihapus.');
                 })
               }
               className="px-3 py-1 rounded-lg bg-amber-600 text-white font-semibold hover:bg-amber-700 transition-colors"
@@ -2023,10 +2757,13 @@ export default function App() {
             <p className="text-sm text-slate-600 dark:text-slate-300 mb-6">{confirmModal.message}</p>
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => setConfirmModal((c) => ({ ...c, open: false }))}
+                onClick={() => {
+                  if (confirmModal.onCancel) confirmModal.onCancel();
+                  setConfirmModal((c) => ({ ...c, open: false }));
+                }}
                 className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800"
               >
-                Batal
+                {confirmModal.cancelLabel || 'Batal'}
               </button>
               <button
                 onClick={() => {
@@ -2035,7 +2772,7 @@ export default function App() {
                 }}
                 className="px-4 py-2.5 rounded-xl bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700"
               >
-                Ya, Lanjutkan
+                {confirmModal.confirmLabel || 'Ya, Lanjutkan'}
               </button>
             </div>
           </div>
@@ -5517,7 +6254,9 @@ const SettingsBackupView: React.FC<{
   syncStatus: string;
   lastSyncTime: string;
   onUpdateSettings: (s: AppSettings) => void;
-  onTestConnection: (url: string) => void;
+  syncDetail?: string;
+  onTestConnection: (url: string, token: string) => void;
+  onForcePush: () => void;
   onSyncNow: () => void;
   onPullFromCloud: () => void;
   onRestoreDatabase: (db: WorkspaceDatabase) => void;
@@ -5530,10 +6269,14 @@ const SettingsBackupView: React.FC<{
   onTestConnection,
   onSyncNow,
   onPullFromCloud,
+  onForcePush,
+  syncDetail,
   onRestoreDatabase,
   onResetLocal,
 }) => {
   const [urlInput, setUrlInput] = useState(settings.appsScriptUrl);
+  const [tokenInput, setTokenInput] = useState(settings.apiToken || '');
+  const [showToken, setShowToken] = useState(false);
   const [tahun, setTahun] = useState(settings.tahunAjaran);
   const [semester, setSemester] = useState<'Ganjil' | 'Genap'>(settings.semester);
 
@@ -5650,7 +6393,7 @@ const SettingsBackupView: React.FC<{
       <div className={`p-6 rounded-2xl border space-y-4 ${dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'}`}>
         <h3 className="font-bold text-base">Koneksi Backend Google Apps Script & Tahun Ajaran</h3>
         <p className="text-xs text-slate-500">
-          URL Web App Anda sudah tertanam secara bawaan dan otomatis melakukan sinkronisasi setiap kali Anda membuka aplikasi maupun menyimpan data.
+          Aplikasi menyinkronkan data setiap kali dibuka dan setiap kali Anda menyimpan perubahan. Cloud tidak akan ditimpa jika status cloud tidak dapat dipastikan atau jika data cloud berubah dari perangkat lain; Anda akan diminta memilih.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
@@ -5661,6 +6404,31 @@ const SettingsBackupView: React.FC<{
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
             />
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-xs font-semibold mb-1">API Token Backend</label>
+            <div className="relative">
+              <input
+                type={showToken ? 'text' : 'password'}
+                autoComplete="off"
+                className={`${inputCls} pr-12`}
+                placeholder="Tempel token dari Apps Script (Script Properties: API_TOKEN)"
+                value={tokenInput}
+                onChange={(e) => setTokenInput(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowToken((v) => !v)}
+                aria-label={showToken ? 'Sembunyikan token' : 'Tampilkan token'}
+                className="absolute right-1 top-1/2 -translate-y-1/2 p-2.5 text-slate-500"
+              >
+                {showToken ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Token hanya disimpan di browser ini, tidak di repository. Buat atau ganti token dengan menjalankan fungsi{' '}
+              <code>rotateApiToken</code> di editor Apps Script, lalu salin dari Execution log.
+            </p>
           </div>
           <div>
             <label className="block text-xs font-semibold mb-1">Tahun Ajaran Aktif</label>
@@ -5677,13 +6445,13 @@ const SettingsBackupView: React.FC<{
 
         <div className="flex flex-wrap gap-3 pt-2">
           <button
-            onClick={() => onUpdateSettings({ ...settings, appsScriptUrl: urlInput.trim(), tahunAjaran: tahun, semester })}
+            onClick={() => onUpdateSettings({ ...settings, appsScriptUrl: urlInput.trim(), apiToken: tokenInput.trim(), tahunAjaran: tahun, semester })}
             className="px-5 py-2.5 rounded-xl bg-[#173B70] text-white text-xs font-bold min-h-[44px]"
           >
             Simpan Konfigurasi
           </button>
           <button
-            onClick={() => onTestConnection(urlInput.trim())}
+            onClick={() => onTestConnection(urlInput.trim(), tokenInput.trim())}
             className="px-4 py-2.5 rounded-xl border text-xs font-bold min-h-[44px]"
           >
             Test Koneksi API
@@ -5692,7 +6460,7 @@ const SettingsBackupView: React.FC<{
             onClick={onSyncNow}
             className="px-4 py-2.5 rounded-xl bg-[#178C8C] text-white text-xs font-bold min-h-[44px]"
           >
-            Kirim Data ke Sheets (Push)
+            Sinkronkan Sekarang
           </button>
           <button
             onClick={onPullFromCloud}
@@ -5700,8 +6468,15 @@ const SettingsBackupView: React.FC<{
           >
             Ambil Data dari Sheets (Pull)
           </button>
+          <button
+            onClick={onForcePush}
+            className="px-4 py-2.5 rounded-xl border border-rose-500 text-rose-700 dark:text-rose-300 text-xs font-bold min-h-[44px]"
+          >
+            Timpa Cloud dengan Data Lokal
+          </button>
         </div>
         <p className="text-xs text-slate-500">Sinkronisasi terakhir: {lastSyncTime}</p>
+        {syncDetail ? <p className="text-xs text-rose-600 dark:text-rose-300">{syncDetail}</p> : null}
       </div>
 
       <div className={`p-6 rounded-2xl border space-y-4 ${dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'}`}>
@@ -5770,6 +6545,7 @@ const SetupGuideView: React.FC<{ dark: boolean; onCopySuccess: (label: string) =
             <li>Di dalam Spreadsheet tadi, klik menu <strong>Ekstensi</strong> → <strong>Apps Script</strong>.</li>
             <li>Tempel kode dari tombol <strong>Salin Kode Apps Script</strong> di bawah dan Simpan.</li>
             <li>Pilih fungsi <code>setupDatabase</code> lalu klik <strong>Jalankan (Run)</strong>.</li>
+            <li>Pilih fungsi <code>rotateApiToken</code>, klik <strong>Jalankan</strong>, lalu salin token dari <strong>Execution log</strong>.</li>
           </ol>
         </div>
 
@@ -5779,6 +6555,7 @@ const SetupGuideView: React.FC<{ dark: boolean; onCopySuccess: (label: string) =
             <li>Klik <strong>Terapkan (Deploy)</strong> → <strong>Deployment baru</strong> → <strong>Aplikasi web</strong>.</li>
             <li><em>Jalankan sebagai</em>: <strong>Saya</strong>; <em>Yang memiliki akses</em>: <strong>Siapa saja (Anyone)</strong>.</li>
             <li>Salin <strong>URL Aplikasi Web</strong> yang muncul.</li>
+            <li>Setiap kali kode diubah, buat <strong>Deployment baru</strong> (versi baru) agar perubahan berlaku.</li>
           </ol>
         </div>
 
@@ -5786,7 +6563,7 @@ const SetupGuideView: React.FC<{ dark: boolean; onCopySuccess: (label: string) =
           <span className="text-xs font-extrabold text-[#178C8C]">TAHAP 4 — MENGHUBUNGKAN KE APLIKASI</span>
           <ol className="list-decimal list-inside text-xs sm:text-sm space-y-1.5 pt-1">
             <li>Buka menu <strong>Pengaturan & Backup</strong> di sidebar kiri aplikasi ini.</li>
-            <li>Tempel URL Web App lalu klik <strong>Simpan Konfigurasi</strong> & <strong>Test Koneksi API</strong>.</li>
+            <li>Tempel URL Web App dan <strong>API Token</strong>, lalu klik <strong>Simpan Konfigurasi</strong> & <strong>Test Koneksi API</strong>.</li>
           </ol>
         </div>
       </div>
