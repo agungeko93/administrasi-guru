@@ -7,7 +7,7 @@ import {
   Sun, Moon, Cloud, Database, AlertTriangle, CheckCircle2, Info, Printer,
   Plus, Trash2, Edit3, ArrowUp, ArrowDown, Download, Upload, Sparkles,
   ShieldCheck, Copy, Check, RotateCcw, Lock, LogOut, Eye, EyeOff,
-  KeyRound, User, Search
+  KeyRound, User, Search, ListChecks
 } from 'lucide-react';
 
 // ============================================================================
@@ -164,10 +164,27 @@ interface CPAnalysis {
   keterangan: string;
 }
 
+// Tujuan Pembelajaran (TP): hasil merumuskan kompetensi + lingkup materi dari Analisis CP
+interface LearningObjective {
+  id: string;
+  subjectId: string;
+  fase: 'E' | 'F';
+  tingkat: 'X' | 'XI' | 'XII';
+  elemen: string;
+  analysisIds: string[]; // baris Analisis CP yang menjadi dasar TP ini
+  kodeTp: string;
+  rumusan: string;
+  konteks: string; // karakteristik peserta didik, visi-misi, sumber daya satuan pendidikan
+  keterangan: string;
+}
+
 interface ATPItem {
   id: string;
   subjectId: string;
   analysisId: string;
+  tpId?: string; // TP sumber (halaman Tujuan Pembelajaran)
+  tingkat?: 'X' | 'XI' | 'XII';
+  prinsipUrutan?: string;
   fase: 'E' | 'F';
   tahunAjaran: string;
   semester: 'Ganjil' | 'Genap';
@@ -331,6 +348,7 @@ interface WorkspaceDatabase {
   subjects: Subject[];
   cps: LearningOutcome[];
   cpAnalyses: CPAnalysis[];
+  tps: LearningObjective[];
   atps: ATPItem[];
   protas: ProtaItem[];
   promes: PromesItem[];
@@ -394,6 +412,7 @@ const createEmptyDatabase = (): WorkspaceDatabase => ({
   subjects: [],
   cps: [],
   cpAnalyses: [],
+  tps: [],
   atps: [],
   protas: [],
   promes: [],
@@ -416,6 +435,11 @@ const createDemoDatabase = (): WorkspaceDatabase => {
   const cp1 = 'cp-tsm-01';
   const cp2 = 'cp-tsm-02';
   const an1 = 'an-tsm-01';
+  const an2 = 'an-tsm-02';
+  const an3 = 'an-tsm-03';
+  const tp1 = 'tp-tsm-01';
+  const tp2 = 'tp-tsm-02';
+  const tp3 = 'tp-tsm-03';
   const atp1 = 'atp-tsm-01';
   const atp2 = 'atp-tsm-02';
   const atp3 = 'atp-tsm-03';
@@ -505,12 +529,80 @@ const createDemoDatabase = (): WorkspaceDatabase => {
         aspekK3: 'Wearpack, sepatu safety, ventilasi gas buang (exhaust extractor), penampungan oli bekas',
         keterangan: '[DEMO]',
       },
+      {
+        id: an2,
+        cpId: cp2,
+        subjectId: sub2,
+        fase: 'F',
+        elemen: 'Perawatan dan Perbaikan Sistem Kelistrikan Sepeda Motor',
+        kompetensi: 'Mendiagnosis gangguan sistem pengapian, pengisian, starter, dan manajemen engine (EMS/injeksi)',
+        lingkupMateri: 'Sensor TP, EOT, O2, kode kedipan MIL, dan diagnostic scanner',
+        kataKerjaOperasional: 'Mendiagnosis, Membaca, Mengukur',
+        buktiKetercapaian: 'Peserta didik mampu membaca kode MIL dan parameter sensor menggunakan diagnostic scanner.',
+        kebutuhanPraktik: 'Diagnostic scanner, multitester, unit sepeda motor injeksi',
+        aspekK3: 'Hindari hubungan singkat baterai, gunakan sarung tangan, pastikan ventilasi',
+        keterangan: '[DEMO]',
+      },
+      {
+        id: an3,
+        cpId: cp1,
+        subjectId: sub1,
+        fase: 'F',
+        elemen: 'Perawatan dan Perbaikan Engine Sepeda Motor',
+        kompetensi: 'Memeriksa dan merawat sistem pelumasan serta sistem pendinginan engine',
+        lingkupMateri: 'Pompa oli, filter oli, radiator, thermostat (contoh baris yang belum dirumuskan TP-nya)',
+        kataKerjaOperasional: 'Memeriksa, Merawat',
+        buktiKetercapaian: '',
+        kebutuhanPraktik: 'Unit sepeda motor, wadah oli bekas',
+        aspekK3: 'Penampungan oli bekas, sarung tangan',
+        keterangan: '[DEMO]',
+      },
+    ],
+    tps: [
+      {
+        id: tp1,
+        subjectId: sub1,
+        fase: 'F',
+        tingkat: 'XI',
+        elemen: 'Perawatan dan Perbaikan Engine Sepeda Motor',
+        analysisIds: [an1],
+        kodeTp: 'TP.11.1',
+        rumusan: 'Menerapkan prosedur K3LH, penggunaan SST, dan pembacaan Buku Pedoman Reparasi (BPR) pada area bengkel TSM.',
+        konteks: '',
+        keterangan: '[DEMO]',
+      },
+      {
+        id: tp2,
+        subjectId: sub1,
+        fase: 'F',
+        tingkat: 'XI',
+        elemen: 'Perawatan dan Perbaikan Engine Sepeda Motor',
+        analysisIds: [an1],
+        kodeTp: 'TP.11.2',
+        rumusan: 'Melakukan pemeriksaan, pengukuran celah katup, dan penyetelan mekanisme katup sepeda motor 4 langkah sesuai standar pabrikan.',
+        konteks: '',
+        keterangan: '[DEMO]',
+      },
+      {
+        id: tp3,
+        subjectId: sub2,
+        fase: 'F',
+        tingkat: 'XI',
+        elemen: 'Perawatan dan Perbaikan Sistem Kelistrikan Sepeda Motor',
+        analysisIds: [an2],
+        kodeTp: 'TP.11.1',
+        rumusan: 'Mendiagnosis kode kedipan MIL (Malfunction Indicator Lamp) dan membaca parameter sensor menggunakan diagnostic scanner.',
+        konteks: '',
+        keterangan: '[DEMO]',
+      },
     ],
     atps: [
       {
         id: atp1,
         subjectId: sub1,
         analysisId: an1,
+        tpId: tp1,
+        tingkat: 'XI',
         fase: 'F',
         tahunAjaran: '2026/2027',
         semester: 'Ganjil',
@@ -527,6 +619,8 @@ const createDemoDatabase = (): WorkspaceDatabase => {
         id: atp2,
         subjectId: sub1,
         analysisId: an1,
+        tpId: tp2,
+        tingkat: 'XI',
         fase: 'F',
         tahunAjaran: '2026/2027',
         semester: 'Ganjil',
@@ -542,12 +636,14 @@ const createDemoDatabase = (): WorkspaceDatabase => {
       {
         id: atp3,
         subjectId: sub2,
-        analysisId: an1,
+        analysisId: an2,
+        tpId: tp3,
+        tingkat: 'XI',
         fase: 'F',
         tahunAjaran: '2026/2027',
         semester: 'Ganjil',
         elemen: 'Perawatan dan Perbaikan Sistem Kelistrikan Sepeda Motor',
-        kodeTp: 'TP.11.3',
+        kodeTp: 'TP.11.1',
         tujuanPembelajaran: 'Mendiagnosis kode kedipan MIL (Malfunction Indicator Lamp) dan membaca parameter sensor menggunakan diagnostic scanner.',
         kompetensi: 'Mendiagnosis sistem injeksi elektronik',
         lingkupMateri: 'Sensor TP, EOT, O2, dan Diagnostic Scanner',
@@ -765,12 +861,57 @@ interface CloudResponse {
 const DATA_COLLECTIONS = [
   'calendar', 'classes', 'students', 'subjects', 'cps', 'cpAnalyses', 'atps',
   'protas', 'promes', 'modules', 'jobsheets', 'journals', 'attendances',
-  'assessments', 'grades', 'followUps',
+  'assessments', 'grades', 'followUps', 'tps',
 ] as const;
 
 // Apakah database berisi data pengguna (bukan sekadar kerangka kosong)?
 const hasUserData = (d: WorkspaceDatabase): boolean =>
   DATA_COLLECTIONS.some((k) => Array.isArray((d as any)[k]) && (d as any)[k].length > 0);
+
+// ---- Alur kurikulum: TP terpisah dari ATP ------------------------------------
+const tingkatNumber = (t: 'X' | 'XI' | 'XII'): number => (t === 'X' ? 10 : t === 'XI' ? 11 : 12);
+
+const inferTingkat = (kodeTp: string, fase: 'E' | 'F'): 'X' | 'XI' | 'XII' => {
+  const m = /^TP\.(\d{2})\./i.exec(kodeTp || '');
+  if (m && m[1] === '10') return 'X';
+  if (m && m[1] === '11') return 'XI';
+  if (m && m[1] === '12') return 'XII';
+  return fase === 'E' ? 'X' : 'XI';
+};
+
+// Data lama: tiap ATP yang belum punya TP sumber dibuatkan TP-nya. Id TP diturunkan dari id ATP
+// sehingga hasil migrasi SAMA di setiap perangkat (tidak menimbulkan konflik sinkronisasi) dan
+// aman dijalankan berulang kali.
+const migrateLearningObjectives = (d: any): any => {
+  const tps: LearningObjective[] = Array.isArray(d.tps) ? d.tps : [];
+  const atps: ATPItem[] = Array.isArray(d.atps) ? d.atps : [];
+  const analyses: CPAnalysis[] = Array.isArray(d.cpAnalyses) ? d.cpAnalyses : [];
+  const hasTp = (id?: string) => !!id && tps.some((t) => t.id === id);
+  if (atps.every((a) => hasTp(a.tpId) && a.tingkat)) return d;
+
+  const nextTps = [...tps];
+  const nextAtps = atps.map((a) => {
+    const tingkat = a.tingkat || inferTingkat(a.kodeTp, a.fase);
+    const an = analyses.find((x) => x.id === a.analysisId && x.subjectId === a.subjectId);
+    const tpId = a.tpId || `tp-from-${a.id}`;
+    if (!nextTps.some((t) => t.id === tpId)) {
+      nextTps.push({
+        id: tpId,
+        subjectId: a.subjectId,
+        fase: a.fase,
+        tingkat,
+        elemen: a.elemen,
+        analysisIds: an ? [an.id] : [],
+        kodeTp: a.kodeTp,
+        rumusan: a.tujuanPembelajaran,
+        konteks: '',
+        keterangan: a.keterangan || '',
+      });
+    }
+    return { ...a, tpId, tingkat, analysisId: an ? a.analysisId : '' };
+  });
+  return { ...d, tps: nextTps, atps: nextAtps };
+};
 
 // Memvalidasi & melengkapi struktur database dari cloud/backup. Mengembalikan null jika tidak valid.
 const normalizeWorkspace = (raw: any): WorkspaceDatabase | null => {
@@ -781,8 +922,70 @@ const normalizeWorkspace = (raw: any): WorkspaceDatabase | null => {
   DATA_COLLECTIONS.forEach((k) => {
     if (!Array.isArray(merged[k])) merged[k] = [];
   });
-  return merged as WorkspaceDatabase;
+  return migrateLearningObjectives(merged) as WorkspaceDatabase;
 };
+
+const lowerFirst = (s: string): string => (s ? s.charAt(0).toLowerCase() + s.slice(1) : s);
+
+const seqOfKode = (kode: string): number => {
+  const m = /(\d+)\s*$/.exec(kode || '');
+  return m ? parseInt(m[1], 10) : 0;
+};
+
+const compareTp = (a: LearningObjective, b: LearningObjective): number =>
+  tingkatNumber(a.tingkat) - tingkatNumber(b.tingkat) ||
+  seqOfKode(a.kodeTp) - seqOfKode(b.kodeTp) ||
+  (a.kodeTp || '').localeCompare(b.kodeTp || '');
+
+// Kode TP otomatis mengikuti kelas dan urutan pada mata pelajaran yang sama: TP.11.1, TP.11.2, ...
+const nextKodeTp = (tps: LearningObjective[], subjectId: string, tingkat: 'X' | 'XI' | 'XII'): string => {
+  const prefix = `TP.${tingkatNumber(tingkat)}.`;
+  const used = tps
+    .filter((t) => t.subjectId === subjectId && (t.kodeTp || '').startsWith(prefix))
+    .map((t) => parseInt(t.kodeTp.slice(prefix.length), 10))
+    .filter((n) => Number.isFinite(n));
+  return `${prefix}${(used.length ? Math.max(...used) : 0) + 1}`;
+};
+
+// Draf rumusan TP dari baris analisis terpilih (kompetensi + lingkup materi). Selalu disunting guru.
+const buildTpDraft = (rows: CPAnalysis[]): string => {
+  if (!rows.length) return '';
+  const komp = rows
+    .map((r) => lowerFirst((r.kompetensi || '').trim()).replace(/[.\s]+$/, ''))
+    .filter(Boolean)
+    .join(' serta ');
+  const materi = Array.from(new Set(rows.map((r) => (r.lingkupMateri || '').trim()).filter(Boolean))).join('; ');
+  return `Peserta didik mampu ${komp}${materi ? ` pada materi ${materi}` : ''}.`;
+};
+
+// Menyelaraskan salinan data TP di ATP dengan TP sumbernya
+const syncAtpWithTp = (atp: ATPItem, tp: LearningObjective, analyses: CPAnalysis[]): ATPItem => {
+  const src = analyses.filter((a) => tp.analysisIds.includes(a.id));
+  return {
+    ...atp,
+    subjectId: tp.subjectId,
+    fase: tp.fase,
+    tingkat: tp.tingkat,
+    elemen: tp.elemen,
+    kodeTp: tp.kodeTp,
+    tujuanPembelajaran: tp.rumusan,
+    analysisId: src[0]?.id || '',
+    kompetensi: src.length ? src.map((a) => a.kompetensi).join('; ') : atp.kompetensi,
+    lingkupMateri: src.length
+      ? Array.from(new Set(src.map((a) => a.lingkupMateri))).join('; ')
+      : atp.lingkupMateri,
+  };
+};
+
+// Hanya ATP yang tertaut ke TP terdampak (onlyTpIds) yang diselaraskan; ATP lain tidak disentuh.
+const resyncAtps = (d: WorkspaceDatabase, onlyTpIds: string[]): WorkspaceDatabase => ({
+  ...d,
+  atps: d.atps.map((atp) => {
+    if (!atp.tpId || !onlyTpIds.includes(atp.tpId)) return atp;
+    const tp = d.tps.find((x) => x.id === atp.tpId);
+    return tp ? syncAtpWithTp(atp, tp, d.cpAnalyses) : atp;
+  }),
+});
 
 // Sidik isi database (mengabaikan lastUpdated) untuk membandingkan data lokal vs cloud
 const contentFingerprint = (d: WorkspaceDatabase): string => {
@@ -1186,7 +1389,7 @@ const APPS_SCRIPT_CODE_BUNDLE = `/**
  * Fitur sinkronisasi (versi, deteksi konflik, snapshot terpecah) dari v2 tidak berubah.
  */
 
-const API_VERSION = '3.0.0';
+const API_VERSION = '3.1.0';
 const TZ = 'Asia/Jakarta';
 const CHUNK_SIZE = 40000;
 const SNAP_KEY = 'PRIMARY_WORKSPACE';
@@ -1216,14 +1419,15 @@ const MIRRORS = [
   ['Classes', 'classes'], ['Students', 'students'], ['Subjects', 'subjects'],
   ['LearningOutcomes', 'cps'], ['ATP', 'atps'], ['TeachingModules', 'modules'],
   ['Jobsheets', 'jobsheets'], ['TeachingJournal', 'journals'],
-  ['Attendance', 'attendances'], ['Assessments', 'assessments'], ['Grades', 'grades']
+  ['Attendance', 'attendances'], ['Assessments', 'assessments'], ['Grades', 'grades'],
+  ['LearningObjectives', 'tps']
 ];
 
 // Koleksi yang dipakai untuk menentukan "payload berisi data atau kosong"
 const CONTENT_KEYS = [
   'calendar', 'classes', 'students', 'subjects', 'cps', 'cpAnalyses', 'atps',
   'protas', 'promes', 'modules', 'jobsheets', 'journals', 'attendances',
-  'assessments', 'grades', 'followUps'
+  'assessments', 'grades', 'followUps', 'tps'
 ];
 
 /* ------------------------------------------------------------------ */
@@ -1794,6 +1998,7 @@ type PageId =
   | 'mapel'
   | 'cp'
   | 'analisis_cp'
+  | 'tp'
   | 'atp'
   | 'prota'
   | 'promes'
@@ -1845,13 +2050,37 @@ export default function App() {
   const [db, setDb] = useState<WorkspaceDatabase>(() => {
     try {
       const saved = localStorage.getItem(APP_CONFIG.storageKey);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return normalizeWorkspace(parsed) || parsed;
+      }
     } catch {}
     return createEmptyDatabase();
   });
 
   const [activePage, setActivePage] = useState<PageId>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  // Tutup menu profil saat klik di luar menu atau menekan Escape
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    const onPointerDown = (e: MouseEvent | TouchEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) setProfileMenuOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setProfileMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [profileMenuOpen]);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'connected' | 'error'>('idle');
   const [lastSyncTime, setLastSyncTime] = useState<string>('Belum disinkronkan');
@@ -2344,6 +2573,7 @@ export default function App() {
       items: [
         { id: 'cp', label: 'Capaian Pembelajaran (CP)', icon: <Target size={18} />, badge: db.cps.length },
         { id: 'analisis_cp', label: 'Analisis CP', icon: <FileSearch size={18} />, badge: db.cpAnalyses.length },
+        { id: 'tp', label: 'Tujuan Pembelajaran (TP)', icon: <ListChecks size={18} />, badge: db.tps.length },
         { id: 'atp', label: 'Alur Tujuan (ATP)', icon: <GitCommitHorizontal size={18} />, badge: db.atps.length },
         { id: 'prota', label: 'Program Tahunan (PROTA)', icon: <CalendarRange size={18} /> },
         { id: 'promes', label: 'Program Semester (PROMES)', icon: <CalendarDays size={18} /> },
@@ -2374,6 +2604,13 @@ export default function App() {
       ],
     },
   ];
+
+  const alurCounts: AlurCounts = {
+    cp: db.cps.length,
+    analisis_cp: db.cpAnalyses.length,
+    tp: db.tps.length,
+    atp: db.atps.length,
+  };
 
   const currentNavLabel =
     navGroups.flatMap((g) => g.items).find((i) => i.id === activePage)?.label || 'Dashboard';
@@ -2489,6 +2726,8 @@ export default function App() {
             cps={db.cps}
             subjects={db.subjects}
             dark={dark}
+            counts={alurCounts}
+            onNavigate={setActivePage}
             onAdd={(cp) => updateDatabase((p) => ({ ...p, cps: [...p.cps, cp] }), 'Capaian Pembelajaran berhasil disimpan')}
             onUpdate={(cp) =>
               updateDatabase(
@@ -2509,41 +2748,105 @@ export default function App() {
             analyses={db.cpAnalyses}
             cps={db.cps}
             subjects={db.subjects}
+            tps={db.tps}
+            counts={alurCounts}
             dark={dark}
-            onAdd={(an) => updateDatabase((p) => ({ ...p, cpAnalyses: [...p.cpAnalyses, an] }), 'Analisis CP berhasil disimpan')}
+            onNavigate={setActivePage}
+            onAddMany={(list) =>
+              updateDatabase(
+                (p) => ({ ...p, cpAnalyses: [...p.cpAnalyses, ...list] }),
+                list.length > 1 ? `${list.length} baris analisis CP berhasil disimpan` : 'Analisis CP berhasil disimpan'
+              )
+            }
             onUpdate={(an) =>
               updateDatabase(
-                (p) => ({ ...p, cpAnalyses: p.cpAnalyses.map((a) => (a.id === an.id ? an : a)) }),
+                (p) =>
+                  resyncAtps(
+                    { ...p, cpAnalyses: p.cpAnalyses.map((a) => (a.id === an.id ? an : a)) },
+                    p.tps.filter((tp) => tp.analysisIds.includes(an.id)).map((tp) => tp.id)
+                  ),
                 'Analisis CP diperbarui'
               )
             }
-            onDelete={(id) =>
-              askConfirm('Hapus Analisis CP?', 'Data analisis ini akan dihapus.', () =>
-                updateDatabase((p) => ({ ...p, cpAnalyses: p.cpAnalyses.filter((a) => a.id !== id) }), 'Analisis CP dihapus')
+            onDelete={(id) => {
+              const used = db.tps.filter((tp) => tp.analysisIds.includes(id)).length;
+              askConfirm(
+                'Hapus Baris Analisis CP?',
+                used > 0
+                  ? `Baris analisis ini menjadi dasar ${used} Tujuan Pembelajaran. TP tidak ikut terhapus, tetapi tautannya ke analisis ini dilepas.`
+                  : 'Baris analisis ini akan dihapus.',
+                () =>
+                  updateDatabase(
+                    (p) =>
+                      resyncAtps(
+                        {
+                          ...p,
+                          cpAnalyses: p.cpAnalyses.filter((a) => a.id !== id),
+                          tps: p.tps.map((tp) => ({ ...tp, analysisIds: tp.analysisIds.filter((x) => x !== id) })),
+                        },
+                        p.tps.filter((tp) => tp.analysisIds.includes(id)).map((tp) => tp.id)
+                      ),
+                    'Analisis CP dihapus'
+                  )
+              );
+            }}
+          />
+        );
+      case 'tp':
+        return (
+          <TPView
+            tps={db.tps}
+            analyses={db.cpAnalyses}
+            subjects={db.subjects}
+            atps={db.atps}
+            counts={alurCounts}
+            dark={dark}
+            onNavigate={setActivePage}
+            onAdd={(tp) => updateDatabase((p) => ({ ...p, tps: [...p.tps, tp] }), 'Tujuan Pembelajaran berhasil disimpan')}
+            onUpdate={(tp) =>
+              updateDatabase(
+                (p) => resyncAtps({ ...p, tps: p.tps.map((x) => (x.id === tp.id ? tp : x)) }, [tp.id]),
+                'Tujuan Pembelajaran diperbarui (ATP terkait ikut diselaraskan)'
               )
             }
+            onDelete={(id) => {
+              if (db.atps.some((a) => a.tpId === id)) {
+                showToast('error', 'TP ini sudah dipakai di ATP. Hapus dari ATP terlebih dahulu.');
+                return;
+              }
+              askConfirm('Hapus Tujuan Pembelajaran?', 'TP ini akan dihapus dari daftar TP.', () =>
+                updateDatabase((p) => ({ ...p, tps: p.tps.filter((x) => x.id !== id) }), 'Tujuan Pembelajaran dihapus')
+              );
+            }}
           />
         );
       case 'atp':
         return (
           <ATPView
             atps={db.atps}
+            tps={db.tps}
             subjects={db.subjects}
             analyses={db.cpAnalyses}
-            teacher={db.teacher}
             settings={settings}
             dark={dark}
-            onAdd={(item) => updateDatabase((p) => ({ ...p, atps: [...p.atps, item] }), 'Tujuan Pembelajaran ditambahkan ke ATP')}
-            onUpdate={(item) =>
+            counts={alurCounts}
+            onNavigate={setActivePage}
+            onAddMany={(items) =>
               updateDatabase(
-                (p) => ({ ...p, atps: p.atps.map((a) => (a.id === item.id ? item : a)) }),
-                'Tujuan Pembelajaran pada ATP diperbarui'
+                (p) => ({
+                  ...p,
+                  atps: [...p.atps, ...items.map((it, i) => ({ ...it, urutan: p.atps.length + i + 1 }))],
+                }),
+                items.length > 1 ? `${items.length} TP ditambahkan ke ATP` : 'TP ditambahkan ke ATP'
               )
+            }
+            onUpdate={(item) =>
+              updateDatabase((p) => ({ ...p, atps: p.atps.map((a) => (a.id === item.id ? item : a)) }), 'Pengaturan ATP diperbarui')
             }
             onReorder={(nextAtps) => updateDatabase((p) => ({ ...p, atps: nextAtps }), 'Urutan ATP diperbarui')}
             onDelete={(id) =>
-              askConfirm('Hapus TP dari ATP?', 'Tujuan pembelajaran akan dihapus dari alur.', () =>
-                updateDatabase((p) => ({ ...p, atps: p.atps.filter((a) => a.id !== id) }), 'TP dihapus')
+              askConfirm('Hapus dari ATP?', 'TP dilepas dari alur ini. TP tetap tersimpan di daftar Tujuan Pembelajaran.', () =>
+                updateDatabase((p) => ({ ...p, atps: p.atps.filter((a) => a.id !== id) }), 'TP dihapus dari ATP')
               )
             }
             onOpenPrint={(title, content) => setPrintPreview({ open: true, title, content })}
@@ -2802,7 +3105,7 @@ export default function App() {
                 'Pulihkan Database dari File Backup?',
                 'Data saat ini akan digantikan oleh data dari file backup JSON yang Anda pilih. Lanjutkan?',
                 () => {
-                  updateDatabase(() => restored, 'Pemulihan database dari backup JSON berhasil!');
+                  updateDatabase(() => normalizeWorkspace(restored) || restored, 'Pemulihan database dari backup JSON berhasil!');
                 }
               )
             }
@@ -2900,7 +3203,8 @@ export default function App() {
           </div>
         )}
 
-        <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-5 scrollbar-thin">
+        <style>{`.mt-hide-scrollbar{scrollbar-width:none;-ms-overflow-style:none}.mt-hide-scrollbar::-webkit-scrollbar{display:none}`}</style>
+        <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-5 mt-hide-scrollbar">
           {navGroups.map((group) => (
             <div key={group.group}>
               {!sidebarCollapsed && (
@@ -3029,17 +3333,72 @@ export default function App() {
               {dark ? <Sun size={18} className="text-amber-400" /> : <Moon size={18} className="text-slate-600" />}
             </button>
 
-            <button
-              onClick={() => setActivePage('identitas')}
-              className="w-10 h-10 rounded-full bg-[#173B70] text-white font-bold text-sm flex items-center justify-center shadow-xs overflow-hidden border-2 border-[#178C8C]"
-              title="Profil Guru"
-            >
-              {db.teacher.fotoUrl ? (
-                <img src={db.teacher.fotoUrl} alt="Foto Guru" className="w-full h-full object-cover" />
-              ) : (
-                (db.teacher.namaLengkap || 'G').charAt(0).toUpperCase()
+            <div className="relative" ref={profileMenuRef}>
+              <button
+                type="button"
+                onClick={() => setProfileMenuOpen((o: boolean) => !o)}
+                aria-haspopup="menu"
+                aria-expanded={profileMenuOpen}
+                className="w-10 h-10 rounded-full bg-[#173B70] text-white font-bold text-sm flex items-center justify-center shadow-xs overflow-hidden border-2 border-[#178C8C]"
+                title="Menu Profil"
+              >
+                {db.teacher.fotoUrl ? (
+                  <img src={db.teacher.fotoUrl} alt="Foto Guru" className="w-full h-full object-cover" />
+                ) : (
+                  (db.teacher.namaLengkap || 'G').charAt(0).toUpperCase()
+                )}
+              </button>
+
+              {profileMenuOpen && (
+                <div
+                  role="menu"
+                  className={`absolute right-0 mt-2 w-64 rounded-2xl border shadow-xl z-50 overflow-hidden ${
+                    dark ? 'bg-[#13203B] border-slate-700 text-slate-100' : 'bg-white border-slate-200 text-slate-800'
+                  }`}
+                >
+                  <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+                    <p className="text-sm font-bold truncate">{db.teacher.namaLengkap || 'Guru'}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{readAuthSession()?.email || '-'}</p>
+                  </div>
+                  <div className="p-1.5">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setProfileMenuOpen(false);
+                        setActivePage('identitas');
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-left min-h-[44px] hover:bg-slate-100 dark:hover:bg-slate-800"
+                    >
+                      <UserCheck size={16} className="text-[#178C8C]" /> Profil & Identitas Guru
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setProfileMenuOpen(false);
+                        setActivePage('pengaturan');
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-left min-h-[44px] hover:bg-slate-100 dark:hover:bg-slate-800"
+                    >
+                      <KeyRound size={16} className="text-[#178C8C]" /> Ubah Kata Sandi
+                    </button>
+                    <div className="my-1 border-t border-slate-200 dark:border-slate-700" />
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setProfileMenuOpen(false);
+                        handleLogout();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-left min-h-[44px] text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                    >
+                      <LogOut size={16} /> Keluar
+                    </button>
+                  </div>
+                </div>
               )}
-            </button>
+            </div>
           </div>
         </header>
 
@@ -3421,7 +3780,7 @@ const DashboardView: React.FC<{
         <StatCard
           label="PERANGKAT AJAR"
           value={stats.perangkatCount}
-          sub={`${db.modules.length} Modul, ${db.jobsheets.length} Jobsheet, ${db.atps.length} TP`}
+          sub={`${db.modules.length} Modul, ${db.jobsheets.length} Jobsheet, ${db.tps.length} TP`}
           icon={<BookOpen size={22} className="text-[#178C8C]" />}
           dark={dark}
           onClick={() => onNavigate('modul_ajar')}
@@ -4443,7 +4802,9 @@ const CPView: React.FC<{
   onAdd: (cp: LearningOutcome) => void;
   onUpdate: (cp: LearningOutcome) => void;
   onDelete: (id: string) => void;
-}> = ({ cps, subjects, dark, onAdd, onUpdate, onDelete }) => {
+  counts: AlurCounts;
+  onNavigate: (p: PageId) => void;
+}> = ({ cps, subjects, dark, onAdd, onUpdate, onDelete, counts, onNavigate }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [subjectId, setSubjectId] = useState(subjects[0]?.id || '');
   const [elemen, setElemen] = useState('');
@@ -4465,6 +4826,7 @@ const CPView: React.FC<{
 
   return (
     <div className="space-y-6">
+      <AlurStepper current="cp" counts={counts} dark={dark} onNavigate={onNavigate} />
       <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs flex items-start gap-3">
         <Info size={18} className="text-[#173B70] dark:text-blue-300 shrink-0 mt-0.5" />
         <p>
@@ -4583,215 +4945,937 @@ const CPView: React.FC<{
 };
 
 // --- 7. ANALISIS CAPAIAN PEMBELAJARAN ---
+// ============================================================================
+// ALUR PENYUSUNAN: CP -> ANALISIS CP -> TUJUAN PEMBELAJARAN (TP) -> ATP
+// ============================================================================
+type AlurStep = 'cp' | 'analisis_cp' | 'tp' | 'atp';
+interface AlurCounts {
+  cp: number;
+  analisis_cp: number;
+  tp: number;
+  atp: number;
+}
+
+const AlurStepper: React.FC<{
+  current: AlurStep;
+  counts: AlurCounts;
+  dark: boolean;
+  onNavigate: (p: PageId) => void;
+}> = ({ current, counts, dark, onNavigate }) => {
+  const steps: { id: AlurStep; label: string; hint: string }[] = [
+    { id: 'cp', label: 'CP', hint: 'Pahami capaian' },
+    { id: 'analisis_cp', label: 'Analisis CP', hint: 'Kompetensi × materi' },
+    { id: 'tp', label: 'Tujuan Pembelajaran', hint: 'Rumuskan TP' },
+    { id: 'atp', label: 'ATP', hint: 'Urutkan & alokasi JP' },
+  ];
+  return (
+    <ol className="flex flex-wrap gap-2" aria-label="Alur penyusunan perangkat kurikulum">
+      {steps.map((s, i) => {
+        const active = s.id === current;
+        const done = counts[s.id] > 0;
+        return (
+          <li key={s.id}>
+            <button
+              type="button"
+              onClick={() => onNavigate(s.id)}
+              aria-current={active ? 'step' : undefined}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold min-h-[44px] transition-colors ${
+                active
+                  ? 'bg-[#173B70] text-white border-[#173B70]'
+                  : dark
+                  ? 'bg-[#13203B] border-slate-700 text-slate-200 hover:bg-slate-800'
+                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <span
+                className={`w-5 h-5 rounded-full text-[11px] flex items-center justify-center shrink-0 ${
+                  active ? 'bg-white/20' : done ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-600'
+                }`}
+              >
+                {done && !active ? <Check size={12} /> : i + 1}
+              </span>
+              <span className="text-left leading-tight">
+                <span className="block">
+                  {s.label}
+                  {counts[s.id] > 0 ? ` (${counts[s.id]})` : ''}
+                </span>
+                <span className={`block text-[10px] font-normal ${active ? 'text-blue-100' : 'text-slate-400'}`}>
+                  {s.hint}
+                </span>
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ol>
+  );
+};
+
+// --- 6b. ANALISIS CP: uraikan CP menjadi pasangan kompetensi × lingkup materi ---
+interface DraftRow {
+  kompetensi: string;
+  kko: string;
+  lingkupMateri: string;
+  bukti: string;
+  praktik: string;
+  k3: string;
+}
+const emptyDraftRow = (): DraftRow => ({ kompetensi: '', kko: '', lingkupMateri: '', bukti: '', praktik: '', k3: '' });
+
+const KKO_SUGGESTIONS = [
+  'Menerapkan', 'Memeriksa', 'Mengukur', 'Menyetel', 'Mendiagnosis', 'Memperbaiki', 'Merawat',
+  'Membongkar', 'Memasang', 'Menganalisis', 'Menjelaskan', 'Mengidentifikasi', 'Membaca',
+  'Menggunakan', 'Mengoperasikan', 'Mengevaluasi', 'Merancang', 'Menguji',
+];
+
 const CPAnalysisView: React.FC<{
   analyses: CPAnalysis[];
   cps: LearningOutcome[];
   subjects: Subject[];
+  tps: LearningObjective[];
+  counts: AlurCounts;
   dark: boolean;
-  onAdd: (a: CPAnalysis) => void;
+  onNavigate: (p: PageId) => void;
+  onAddMany: (list: CPAnalysis[]) => void;
   onUpdate: (a: CPAnalysis) => void;
   onDelete: (id: string) => void;
-}> = ({ analyses, cps, dark, onAdd, onUpdate, onDelete }) => {
+}> = ({ analyses, cps, subjects, tps, counts, dark, onNavigate, onAddMany, onUpdate, onDelete }) => {
+  const [cpId, setCpId] = useState('');
+  const [rows, setRows] = useState<DraftRow[]>([emptyDraftRow()]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [cpId, setCpId] = useState(cps[0]?.id || '');
-  const [kompetensi, setKompetensi] = useState('');
-  const [lingkupMateri, setLingkupMateri] = useState('');
-  const [kko, setKko] = useState('');
-  const [bukti, setBukti] = useState('');
-  const [praktik, setPraktik] = useState('');
-  const [k3, setK3] = useState('');
+  const [formError, setFormError] = useState('');
+  const formRef = useRef<HTMLFormElement>(null);
 
-  const resetForm = () => {
-    setEditingId(null);
-    setKompetensi('');
-    setLingkupMateri('');
-    setKko('');
-    setBukti('');
-    setPraktik('');
-    setK3('');
-  };
+  const selectedCpId = cps.some((c) => c.id === cpId) ? cpId : cps[0]?.id || '';
+  const selectedCp = cps.find((c) => c.id === selectedCpId);
+  const subjectName = (id: string) => subjects.find((s) => s.id === id)?.namaMapel || '-';
 
   const inputCls = `w-full px-3.5 py-2.5 rounded-xl border text-sm min-h-[44px] ${
     dark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
   }`;
+  const cardCls = `rounded-2xl border ${dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'}`;
 
-  return (
-    <div className="space-y-6">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          const cp = cps.find((c) => c.id === (cpId || cps[0]?.id));
-          if (!cp || !kompetensi.trim()) return;
-          const payload: CPAnalysis = {
-            id: editingId || uid('an'),
-            cpId: cp.id,
-            subjectId: cp.subjectId,
-            fase: cp.fase,
-            elemen: cp.elemen,
-            kompetensi,
-            lingkupMateri,
-            kataKerjaOperasional: kko,
-            buktiKetercapaian: bukti,
-            kebutuhanPraktik: praktik,
-            aspekK3: k3,
-            keterangan: '',
-          };
-          if (editingId) {
-            onUpdate(payload);
-          } else {
-            onAdd(payload);
-          }
-          resetForm();
-        }}
-        className={`p-5 rounded-2xl border space-y-4 ${dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'}`}
-      >
-        <h3 className="font-bold text-base">
-          {editingId ? 'Edit Hasil Analisis CP' : 'Lembar Analisis Capaian Pembelajaran (CP → Kompetensi & Materi)'}
-        </h3>
-        <div>
-          <label className="block text-xs font-semibold mb-1">Pilih Elemen CP yang Dianalisis *</label>
-          <select className={inputCls} value={cpId || cps[0]?.id || ''} onChange={(e) => setCpId(e.target.value)}>
-            <option value="">-- Pilih CP --</option>
-            {cps.map((c) => (
-              <option key={c.id} value={c.id}>Elemen: {c.elemen} (Fase {c.fase})</option>
-            ))}
-          </select>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input required className={inputCls} placeholder="Kompetensi yang harus dikuasai" value={kompetensi} onChange={(e) => setKompetensi(e.target.value)} />
-          <input required className={inputCls} placeholder="Lingkup Materi Inti TSM" value={lingkupMateri} onChange={(e) => setLingkupMateri(e.target.value)} />
-          <input className={inputCls} placeholder="Kata Kerja Operasional (KKO)" value={kko} onChange={(e) => setKko(e.target.value)} />
-          <input className={inputCls} placeholder="Indikator / Bukti Ketercapaian" value={bukti} onChange={(e) => setBukti(e.target.value)} />
-          <input className={inputCls} placeholder="Kebutuhan Unit / Alat Praktik Bengkel" value={praktik} onChange={(e) => setPraktik(e.target.value)} />
-          <input className={inputCls} placeholder="Aspek Keselamatan Kerja (K3LH)" value={k3} onChange={(e) => setK3(e.target.value)} />
-        </div>
-        <div className="flex gap-2">
-          <button type="submit" className="px-5 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm min-h-[44px]">
-            {editingId ? 'Simpan Perubahan Analisis' : '+ Simpan Hasil Analisis CP'}
-          </button>
-          {editingId && (
-            <button type="button" onClick={resetForm} className="px-4 py-2.5 rounded-xl border text-sm font-semibold min-h-[44px]">
-              Batal
-            </button>
-          )}
-        </div>
-      </form>
+  const updateRow = (i: number, patch: Partial<DraftRow>) =>
+    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
-        <table className="w-full text-sm text-left">
-          <thead className={`text-xs uppercase ${dark ? 'bg-slate-900 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
-            <tr>
-              <th className="p-3.5">Elemen</th>
-              <th className="p-3.5">Kompetensi</th>
-              <th className="p-3.5">Lingkup Materi</th>
-              <th className="p-3.5">Kebutuhan Praktik & K3</th>
-              <th className="p-3.5 text-right">Aksi</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-            {analyses.map((a) => (
-              <tr key={a.id} className={dark ? 'bg-[#13203B]' : 'bg-white'}>
-                <td className="p-3.5 font-semibold">{a.elemen}</td>
-                <td className="p-3.5">{a.kompetensi}</td>
-                <td className="p-3.5">{a.lingkupMateri}</td>
-                <td className="p-3.5 text-xs">
+  const resetForm = () => {
+    setEditingId(null);
+    setRows([emptyDraftRow()]);
+    setFormError('');
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+    if (!selectedCp) {
+      setFormError('Pilih Capaian Pembelajaran (CP) yang akan dianalisis.');
+      return;
+    }
+    const filled = rows.filter((r) => r.kompetensi.trim() || r.lingkupMateri.trim());
+    if (!filled.length) {
+      setFormError('Isi minimal satu baris: kompetensi dan lingkup materi.');
+      return;
+    }
+    if (filled.some((r) => !r.kompetensi.trim() || !r.lingkupMateri.trim())) {
+      setFormError('Setiap baris harus memiliki Kompetensi dan Lingkup Materi, atau kosongkan barisnya.');
+      return;
+    }
+    const build = (r: DraftRow, id: string): CPAnalysis => ({
+      id,
+      cpId: selectedCp.id,
+      subjectId: selectedCp.subjectId,
+      fase: selectedCp.fase,
+      elemen: selectedCp.elemen,
+      kompetensi: r.kompetensi.trim(),
+      lingkupMateri: r.lingkupMateri.trim(),
+      kataKerjaOperasional: r.kko.trim(),
+      buktiKetercapaian: r.bukti.trim(),
+      kebutuhanPraktik: r.praktik.trim(),
+      aspekK3: r.k3.trim(),
+      keterangan: analyses.find((a) => a.id === editingId)?.keterangan || '',
+    });
+    if (editingId) {
+      onUpdate(build(filled[0], editingId));
+    } else {
+      onAddMany(filled.map((r) => build(r, uid('an'))));
+    }
+    resetForm();
+  };
+
+  const startEdit = (a: CPAnalysis) => {
+    setEditingId(a.id);
+    setCpId(a.cpId);
+    setRows([
+      {
+        kompetensi: a.kompetensi,
+        kko: a.kataKerjaOperasional || '',
+        lingkupMateri: a.lingkupMateri,
+        bukti: a.buktiKetercapaian || '',
+        praktik: a.kebutuhanPraktik || '',
+        k3: a.aspekK3 || '',
+      },
+    ]);
+    setFormError('');
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+  };
+
+  const tpsOf = (analysisId: string) => tps.filter((tp) => tp.analysisIds.includes(analysisId));
+  const groups = cps
+    .map((cp) => ({ cp, items: analyses.filter((a) => a.cpId === cp.id) }))
+    .filter((g) => g.items.length > 0);
+  const orphans = analyses.filter((a) => !cps.some((c) => c.id === a.cpId));
+
+  const renderTable = (items: CPAnalysis[]) => (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm text-left">
+        <thead className={`text-xs uppercase ${dark ? 'bg-slate-900 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
+          <tr>
+            <th className="p-3 w-10">No</th>
+            <th className="p-3">Kompetensi</th>
+            <th className="p-3">KKO</th>
+            <th className="p-3">Lingkup Materi</th>
+            <th className="p-3">Bukti Ketercapaian</th>
+            <th className="p-3">Alat & K3</th>
+            <th className="p-3">TP</th>
+            <th className="p-3 text-right">Aksi</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+          {items.map((a, idx) => {
+            const linked = tpsOf(a.id);
+            return (
+              <tr key={a.id} className="align-top">
+                <td className="p-3 text-slate-500">{idx + 1}</td>
+                <td className="p-3 min-w-[200px]">{a.kompetensi}</td>
+                <td className="p-3 min-w-[120px] text-xs">{a.kataKerjaOperasional || <span className="text-slate-400">-</span>}</td>
+                <td className="p-3 min-w-[180px]">{a.lingkupMateri}</td>
+                <td className="p-3 min-w-[160px] text-xs">{a.buktiKetercapaian || <span className="text-slate-400">-</span>}</td>
+                <td className="p-3 min-w-[160px] text-xs">
                   <p><strong>Alat:</strong> {a.kebutuhanPraktik || '-'}</p>
                   <p className="text-amber-600"><strong>K3:</strong> {a.aspekK3 || '-'}</p>
                 </td>
-                <td className="p-3.5 text-right">
+                <td className="p-3 min-w-[110px] text-xs">
+                  {linked.length ? (
+                    <div className="flex flex-wrap gap-1">
+                      {linked.map((tp) => (
+                        <span key={tp.id} className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold">
+                          {tp.kodeTp}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-semibold">Belum ada TP</span>
+                  )}
+                </td>
+                <td className="p-3 text-right">
                   <div className="inline-flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingId(a.id);
-                        setCpId(a.cpId);
-                        setKompetensi(a.kompetensi);
-                        setLingkupMateri(a.lingkupMateri);
-                        setKko(a.kataKerjaOperasional || '');
-                        setBukti(a.buktiKetercapaian || '');
-                        setPraktik(a.kebutuhanPraktik || '');
-                        setK3(a.aspekK3 || '');
-                      }}
-                      className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg"
-                      title="Edit Analisis"
-                    >
+                    <button type="button" onClick={() => startEdit(a)} className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg" title="Edit baris analisis">
                       <Edit3 size={15} />
                     </button>
-                    <button type="button" onClick={() => onDelete(a.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg" title="Hapus">
+                    <button type="button" onClick={() => onDelete(a.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg" title="Hapus baris analisis">
                       <Trash2 size={15} />
                     </button>
                   </div>
                 </td>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <AlurStepper current="analisis_cp" counts={counts} dark={dark} onNavigate={onNavigate} />
+
+      <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs flex items-start gap-3">
+        <Info size={18} className="text-[#173B70] dark:text-blue-300 shrink-0 mt-0.5" />
+        <p>
+          Baca CP secara utuh, lalu <strong>pisahkan</strong> menjadi pasangan <strong>kompetensi</strong> (kemampuan/kata kerja)
+          dan <strong>lingkup materi</strong> (konten atau konsep utama). Satu CP biasanya menghasilkan beberapa baris.
+          Hasilnya menjadi bahan merumuskan Tujuan Pembelajaran (TP) pada langkah berikutnya.
+        </p>
       </div>
+
+      {cps.length === 0 ? (
+        <div className={`${cardCls} p-6 text-sm`}>
+          <p className="font-semibold">Belum ada Capaian Pembelajaran.</p>
+          <p className="text-xs text-slate-500 mt-1">Masukkan teks CP terlebih dahulu pada langkah 1.</p>
+          <button type="button" onClick={() => onNavigate('cp')} className="mt-3 px-4 py-2.5 rounded-xl bg-[#173B70] text-white text-xs font-semibold min-h-[44px]">
+            Buka halaman CP
+          </button>
+        </div>
+      ) : (
+        <form ref={formRef} onSubmit={handleSubmit} className={`${cardCls} p-5 space-y-4`}>
+          <h3 className="font-bold text-base">{editingId ? 'Edit Baris Analisis CP' : 'Lembar Analisis Capaian Pembelajaran'}</h3>
+
+          <div>
+            <label className="block text-xs font-semibold mb-1">Pilih Elemen CP yang Dianalisis *</label>
+            <select
+              className={inputCls}
+              value={selectedCpId}
+              onChange={(e) => setCpId(e.target.value)}
+              disabled={!!editingId}
+            >
+              {cps.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {subjectName(c.subjectId)} — {c.elemen} (Fase {c.fase})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {selectedCp && (
+            <div className={`p-4 rounded-xl border text-sm ${dark ? 'bg-slate-900/60 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+              <p className="text-[11px] font-bold uppercase tracking-wide text-[#178C8C] mb-1">
+                Teks Capaian Pembelajaran — Fase {selectedCp.fase}
+              </p>
+              <p className="leading-relaxed">{selectedCp.deskripsiCp}</p>
+              <p className="text-[11px] text-slate-500 mt-2">
+                Sumber: {selectedCp.sumberDokumen} ({selectedCp.tahunDokumen})
+              </p>
+            </div>
+          )}
+
+          <datalist id="kko-suggestions">
+            {KKO_SUGGESTIONS.map((k) => (
+              <option key={k} value={k} />
+            ))}
+          </datalist>
+
+          <div className="space-y-3">
+            {rows.map((r, i) => (
+              <div key={i} className={`p-3.5 rounded-xl border space-y-3 ${dark ? 'border-slate-700' : 'border-slate-200'}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-500">Baris {i + 1}</span>
+                  {!editingId && rows.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setRows((prev) => prev.filter((_, idx) => idx !== i))}
+                      className="text-xs text-rose-600 font-semibold flex items-center gap-1 min-h-[32px]"
+                    >
+                      <Trash2 size={13} /> Hapus baris
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="md:col-span-1">
+                    <label className="block text-[11px] font-semibold mb-1">Kompetensi (kemampuan yang diminta CP) *</label>
+                    <input className={inputCls} value={r.kompetensi} onChange={(e) => updateRow(i, { kompetensi: e.target.value })} placeholder="mis. Mendiagnosis gangguan mekanisme katup" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold mb-1">Kata Kerja Operasional (KKO)</label>
+                    <input className={inputCls} list="kko-suggestions" value={r.kko} onChange={(e) => updateRow(i, { kko: e.target.value })} placeholder="mis. Mendiagnosis" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold mb-1">Lingkup Materi (konten/konsep) *</label>
+                    <input className={inputCls} value={r.lingkupMateri} onChange={(e) => updateRow(i, { lingkupMateri: e.target.value })} placeholder="mis. Celah katup, kompresi silinder" />
+                  </div>
+                </div>
+                <details open={!!(r.bukti || r.praktik || r.k3)}>
+                  <summary className="text-xs font-semibold text-[#178C8C] cursor-pointer select-none min-h-[32px] flex items-center">
+                    Detail tambahan (opsional): bukti ketercapaian, alat praktik, K3LH
+                  </summary>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
+                    <input className={inputCls} value={r.bukti} onChange={(e) => updateRow(i, { bukti: e.target.value })} placeholder="Indikator / bukti ketercapaian" />
+                    <input className={inputCls} value={r.praktik} onChange={(e) => updateRow(i, { praktik: e.target.value })} placeholder="Unit / alat praktik bengkel" />
+                    <input className={inputCls} value={r.k3} onChange={(e) => updateRow(i, { k3: e.target.value })} placeholder="Aspek keselamatan kerja (K3LH)" />
+                  </div>
+                </details>
+              </div>
+            ))}
+          </div>
+
+          {formError && (
+            <div className="p-3 rounded-xl bg-rose-500/15 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-2" role="alert">
+              <AlertTriangle size={15} className="shrink-0" /> {formError}
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            {!editingId && (
+              <button
+                type="button"
+                onClick={() => setRows((prev) => [...prev, emptyDraftRow()])}
+                className="px-4 py-2.5 rounded-xl border border-[#178C8C] text-[#178C8C] text-sm font-semibold min-h-[44px] flex items-center gap-1.5"
+              >
+                <Plus size={15} /> Tambah baris
+              </button>
+            )}
+            <button type="submit" className="px-5 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm min-h-[44px]">
+              {editingId ? 'Simpan Perubahan' : rows.length > 1 ? `Simpan ${rows.length} Baris Analisis` : 'Simpan Hasil Analisis'}
+            </button>
+            {editingId && (
+              <button type="button" onClick={resetForm} className="px-4 py-2.5 rounded-xl border text-sm font-semibold min-h-[44px]">
+                Batal
+              </button>
+            )}
+          </div>
+        </form>
+      )}
+
+      {analyses.length === 0 ? (
+        <div className={`${cardCls} p-6 text-sm text-slate-500`}>
+          Belum ada hasil analisis. Pilih CP di atas, lalu uraikan kompetensi dan lingkup materinya.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {groups.map(({ cp, items }) => {
+            const covered = items.filter((a) => tpsOf(a.id).length > 0).length;
+            return (
+              <section key={cp.id} className={`${cardCls} overflow-hidden`}>
+                <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-bold text-sm truncate">{subjectName(cp.subjectId)}</p>
+                    <p className="text-xs text-slate-500 truncate">Elemen: {cp.elemen} • Fase {cp.fase}</p>
+                  </div>
+                  <span
+                    className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                      covered === items.length ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    Sudah dipetakan ke TP: {covered}/{items.length}
+                  </span>
+                </div>
+                {renderTable(items)}
+              </section>
+            );
+          })}
+          {orphans.length > 0 && (
+            <section className={`${cardCls} overflow-hidden`}>
+              <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 text-sm font-bold">
+                Analisis tanpa CP (CP sumber sudah dihapus)
+              </div>
+              {renderTable(orphans)}
+            </section>
+          )}
+          <div className="flex justify-end">
+            <button type="button" onClick={() => onNavigate('tp')} className="px-5 py-2.5 rounded-xl bg-[#178C8C] text-white text-sm font-semibold min-h-[44px]">
+              Lanjut: Rumuskan Tujuan Pembelajaran →
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- 7. TUJUAN PEMBELAJARAN (TP): turunkan hasil analisis menjadi rumusan TP ---
+const TPView: React.FC<{
+  tps: LearningObjective[];
+  analyses: CPAnalysis[];
+  subjects: Subject[];
+  atps: ATPItem[];
+  counts: AlurCounts;
+  dark: boolean;
+  onNavigate: (p: PageId) => void;
+  onAdd: (tp: LearningObjective) => void;
+  onUpdate: (tp: LearningObjective) => void;
+  onDelete: (id: string) => void;
+}> = ({ tps, analyses, subjects, atps, counts, dark, onNavigate, onAdd, onUpdate, onDelete }) => {
+  const [subjectIdState, setSubjectIdState] = useState('');
+  const subjectId = subjects.some((s) => s.id === subjectIdState) ? subjectIdState : subjects[0]?.id || '';
+  const subject = subjects.find((s) => s.id === subjectId);
+
+  const [tingkatState, setTingkatState] = useState<'X' | 'XI' | 'XII' | ''>('');
+  const tingkat = (tingkatState || subject?.tingkat || 'X') as 'X' | 'XI' | 'XII';
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [kode, setKode] = useState('');
+  const [rumusan, setRumusan] = useState('');
+  const [konteks, setKonteks] = useState('');
+  const [formError, setFormError] = useState('');
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const subjectAnalyses = analyses.filter((a) => a.subjectId === subjectId);
+  const subjectTps = tps.filter((x) => x.subjectId === subjectId).sort(compareTp);
+  const coveredCount = subjectAnalyses.filter((a) => subjectTps.some((x) => x.analysisIds.includes(a.id))).length;
+  const autoKode = nextKodeTp(tps, subjectId, tingkat);
+  const selectedRows = subjectAnalyses.filter((a) => selectedIds.includes(a.id));
+
+  const inputCls = `w-full px-3.5 py-2.5 rounded-xl border text-sm min-h-[44px] ${
+    dark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+  }`;
+  const cardCls = `rounded-2xl border ${dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'}`;
+
+  const resetForm = () => {
+    setEditingId(null);
+    setSelectedIds([]);
+    setKode('');
+    setRumusan('');
+    setKonteks('');
+    setFormError('');
+  };
+
+  const changeSubject = (id: string) => {
+    setSubjectIdState(id);
+    setTingkatState('');
+    resetForm();
+  };
+
+  const scrollToForm = () => setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+
+  const startFromAnalysis = (a: CPAnalysis) => {
+    resetForm();
+    setSelectedIds([a.id]);
+    setRumusan(buildTpDraft([a]));
+    scrollToForm();
+  };
+
+  const startEdit = (tp: LearningObjective) => {
+    setSubjectIdState(tp.subjectId);
+    setTingkatState(tp.tingkat);
+    setEditingId(tp.id);
+    setSelectedIds(tp.analysisIds);
+    setKode(tp.kodeTp);
+    setRumusan(tp.rumusan);
+    setKonteks(tp.konteks || '');
+    setFormError('');
+    scrollToForm();
+  };
+
+  const toggleAnalysis = (id: string) =>
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+    if (!subject) return;
+    const text = rumusan.trim();
+    if (text.length < 10) {
+      setFormError('Rumusan TP terlalu singkat. Tuliskan kompetensi dan lingkup materi secara spesifik dan terukur.');
+      return;
+    }
+    if (!editingId && selectedIds.length === 0) {
+      setFormError('Pilih minimal satu baris Analisis CP sebagai dasar TP.');
+      return;
+    }
+    const kodeFinal = kode.trim() || autoKode;
+    if (tps.some((x) => x.id !== editingId && x.subjectId === subjectId && x.kodeTp === kodeFinal)) {
+      setFormError(`Kode TP ${kodeFinal} sudah dipakai pada mata pelajaran ini.`);
+      return;
+    }
+    const existing = tps.find((x) => x.id === editingId);
+    const payload: LearningObjective = {
+      id: editingId || uid('tp'),
+      subjectId,
+      fase: subject.fase,
+      tingkat,
+      elemen: selectedRows[0]?.elemen || existing?.elemen || subject.namaMapel,
+      analysisIds: selectedIds,
+      kodeTp: kodeFinal,
+      rumusan: text,
+      konteks: konteks.trim(),
+      keterangan: existing?.keterangan || '',
+    };
+    if (editingId) onUpdate(payload);
+    else onAdd(payload);
+    resetForm();
+  };
+
+  if (subjects.length === 0) {
+    return (
+      <div className="space-y-6">
+        <AlurStepper current="tp" counts={counts} dark={dark} onNavigate={onNavigate} />
+        <div className={`${cardCls} p-6 text-sm`}>
+          <p className="font-semibold">Belum ada mata pelajaran.</p>
+          <button type="button" onClick={() => onNavigate('mapel')} className="mt-3 px-4 py-2.5 rounded-xl bg-[#173B70] text-white text-xs font-semibold min-h-[44px]">
+            Buka Mata Pelajaran
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <AlurStepper current="tp" counts={counts} dark={dark} onNavigate={onNavigate} />
+
+      <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs flex items-start gap-3">
+        <Info size={18} className="text-[#173B70] dark:text-blue-300 shrink-0 mt-0.5" />
+        <p>
+          Ubah hasil Analisis CP menjadi <strong>Tujuan Pembelajaran</strong> yang spesifik, operasional, dan terukur.
+          Sesuaikan dengan karakteristik peserta didik dan sumber daya bengkel, dan pastikan seluruh kompetensi CP pada
+          satu fase sudah tercakup.
+        </p>
+      </div>
+
+      <div className={`${cardCls} p-5 space-y-3`}>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex-1 min-w-[220px]">
+            <label className="block text-xs font-semibold mb-1">Mata Pelajaran</label>
+            <select className={inputCls} value={subjectId} onChange={(e) => changeSubject(e.target.value)} disabled={!!editingId}>
+              {subjects.map((s) => (
+                <option key={s.id} value={s.id}>{s.namaMapel} (Fase {s.fase})</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between text-xs mb-1.5">
+            <span className="font-semibold">Cakupan CP: {coveredCount} dari {subjectAnalyses.length} baris analisis sudah punya TP</span>
+            <span className="text-slate-500">{subjectAnalyses.length ? Math.round((coveredCount / subjectAnalyses.length) * 100) : 0}%</span>
+          </div>
+          <div className="w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-[#178C8C] transition-all"
+              style={{ width: `${subjectAnalyses.length ? (coveredCount / subjectAnalyses.length) * 100 : 0}%` }}
+            />
+          </div>
+        </div>
+
+        {subjectAnalyses.length === 0 ? (
+          <div className="text-sm text-slate-500">
+            Mata pelajaran ini belum punya hasil Analisis CP.{' '}
+            <button type="button" onClick={() => onNavigate('analisis_cp')} className="text-[#178C8C] font-semibold underline">
+              Buka Analisis CP
+            </button>
+          </div>
+        ) : coveredCount < subjectAnalyses.length ? (
+          <div className="space-y-2">
+            <p className="text-xs font-bold text-amber-700 dark:text-amber-300">Belum dirumuskan menjadi TP:</p>
+            {subjectAnalyses
+              .filter((a) => !subjectTps.some((x) => x.analysisIds.includes(a.id)))
+              .map((a) => (
+                <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                  <div className="min-w-0 text-xs">
+                    <p className="font-semibold">{a.kompetensi}</p>
+                    <p className="text-slate-500">{a.lingkupMateri}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => startFromAnalysis(a)}
+                    className="px-3 py-2 rounded-lg bg-[#173B70] text-white text-xs font-semibold min-h-[36px] shrink-0"
+                  >
+                    Rumuskan TP
+                  </button>
+                </div>
+              ))}
+          </div>
+        ) : (
+          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
+            <CheckCircle2 size={15} /> Semua baris analisis sudah tercakup oleh minimal satu TP.
+          </p>
+        )}
+      </div>
+
+      {subjectAnalyses.length > 0 && (
+        <form ref={formRef} onSubmit={handleSubmit} className={`${cardCls} p-5 space-y-4`}>
+          <h3 className="font-bold text-base">{editingId ? 'Edit Tujuan Pembelajaran' : 'Rumuskan Tujuan Pembelajaran'}</h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-[11px] font-semibold mb-1">Kelas / Tingkat</label>
+              <select className={inputCls} value={tingkat} onChange={(e) => setTingkatState(e.target.value as 'X' | 'XI' | 'XII')}>
+                <option value="X">Kelas X</option>
+                <option value="XI">Kelas XI</option>
+                <option value="XII">Kelas XII</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold mb-1">Kode TP</label>
+              <input className={inputCls} value={kode} onChange={(e) => setKode(e.target.value)} placeholder={`Otomatis: ${autoKode}`} />
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold mb-1.5">Dasar TP: pilih baris Analisis CP {editingId ? '' : '*'}</p>
+            <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+              {subjectAnalyses.map((a) => {
+                const n = subjectTps.filter((x) => x.analysisIds.includes(a.id)).length;
+                return (
+                  <label
+                    key={a.id}
+                    className={`flex items-start gap-2.5 p-2.5 rounded-xl border text-xs cursor-pointer ${
+                      selectedIds.includes(a.id)
+                        ? 'border-[#178C8C] bg-[#178C8C]/10'
+                        : dark
+                        ? 'border-slate-700'
+                        : 'border-slate-200'
+                    }`}
+                  >
+                    <input type="checkbox" className="mt-0.5 w-4 h-4" checked={selectedIds.includes(a.id)} onChange={() => toggleAnalysis(a.id)} />
+                    <span className="min-w-0">
+                      <span className="block font-semibold">{a.kompetensi}</span>
+                      <span className="block text-slate-500">{a.lingkupMateri}</span>
+                      <span className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${n ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                        {n ? `${n} TP` : 'Belum ada TP'}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <label className="block text-xs font-semibold">Rumusan Tujuan Pembelajaran *</label>
+              <button
+                type="button"
+                disabled={selectedRows.length === 0}
+                onClick={() => setRumusan(buildTpDraft(selectedRows))}
+                className="text-xs font-semibold text-[#178C8C] disabled:opacity-40 flex items-center gap-1 min-h-[32px]"
+              >
+                <Sparkles size={13} /> {rumusan.trim() ? 'Ganti dengan draf baru' : 'Buat draf dari analisis terpilih'}
+              </button>
+            </div>
+            <textarea
+              className={`${inputCls} min-h-[96px]`}
+              value={rumusan}
+              onChange={(e) => setRumusan(e.target.value)}
+              placeholder="Peserta didik mampu ... (kompetensi) ... pada materi ... (lingkup materi), dengan ... (kondisi/standar)"
+            />
+            <p className="text-[11px] text-slate-400 mt-1">
+              Draf hanya titik awal. Sunting agar spesifik, operasional, dan terukur (kata kerja + materi + kondisi/standar).
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold mb-1">Konteks Satuan Pendidikan (opsional)</label>
+            <textarea
+              className={`${inputCls} min-h-[64px]`}
+              value={konteks}
+              onChange={(e) => setKonteks(e.target.value)}
+              placeholder="Karakteristik peserta didik, visi-misi sekolah, sumber daya bengkel/unit praktik yang tersedia"
+            />
+          </div>
+
+          {formError && (
+            <div className="p-3 rounded-xl bg-rose-500/15 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-2" role="alert">
+              <AlertTriangle size={15} className="shrink-0" /> {formError}
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            <button type="submit" className="px-5 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm min-h-[44px]">
+              {editingId ? 'Simpan Perubahan TP' : '+ Simpan Tujuan Pembelajaran'}
+            </button>
+            {(editingId || selectedIds.length > 0 || rumusan) && (
+              <button type="button" onClick={resetForm} className="px-4 py-2.5 rounded-xl border text-sm font-semibold min-h-[44px]">
+                {editingId ? 'Batal' : 'Kosongkan'}
+              </button>
+            )}
+          </div>
+        </form>
+      )}
+
+      <div className="space-y-2.5">
+        {subjectTps.length === 0 ? (
+          <div className={`${cardCls} p-6 text-sm text-slate-500`}>Belum ada Tujuan Pembelajaran untuk mata pelajaran ini.</div>
+        ) : (
+          subjectTps.map((tp) => {
+            const inAtp = atps.some((a) => a.tpId === tp.id);
+            const linked = analyses.filter((a) => tp.analysisIds.includes(a.id));
+            return (
+              <div key={tp.id} className={`${cardCls} p-4 flex items-start justify-between gap-4`}>
+                <div className="min-w-0 space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-bold text-[#178C8C]">{tp.kodeTp}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 font-semibold">Kelas {tp.tingkat}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-md font-semibold ${inAtp ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                      {inAtp ? 'Sudah di ATP' : 'Belum di ATP'}
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium">{tp.rumusan}</p>
+                  {linked.length > 0 && (
+                    <p className="text-[11px] text-slate-500">
+                      Dasar analisis: {linked.map((a) => a.kompetensi).join(' • ')}
+                    </p>
+                  )}
+                  {tp.konteks && <p className="text-[11px] text-slate-500">Konteks: {tp.konteks}</p>}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button type="button" onClick={() => startEdit(tp)} className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg" title="Edit TP">
+                    <Edit3 size={16} />
+                  </button>
+                  <button type="button" onClick={() => onDelete(tp.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg" title="Hapus TP">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {tps.length > 0 && (
+        <div className="flex justify-end">
+          <button type="button" onClick={() => onNavigate('atp')} className="px-5 py-2.5 rounded-xl bg-[#178C8C] text-white text-sm font-semibold min-h-[44px]">
+            Lanjut: Susun Alur Tujuan Pembelajaran (ATP) →
+          </button>
+        </div>
+      )}
     </div>
   );
 };
 
 // --- 8. ALUR TUJUAN PEMBELAJARAN (ATP) ---
+const PRINSIP_OPTIONS = [
+  'Konkret ke abstrak',
+  'Mudah ke sulit',
+  'Umum ke khusus',
+  'Prosedural (tahapan keterampilan)',
+  'Lainnya',
+];
+
 const ATPView: React.FC<{
   atps: ATPItem[];
+  tps: LearningObjective[];
   subjects: Subject[];
   analyses: CPAnalysis[];
-  teacher: TeacherProfile;
   settings: AppSettings;
   dark: boolean;
-  onAdd: (item: ATPItem) => void;
+  counts: AlurCounts;
+  onNavigate: (p: PageId) => void;
+  onAddMany: (items: ATPItem[]) => void;
   onUpdate: (item: ATPItem) => void;
   onReorder: (next: ATPItem[]) => void;
   onDelete: (id: string) => void;
   onOpenPrint: (title: string, content: React.ReactNode) => void;
-}> = ({ atps, subjects, analyses, settings, dark, onAdd, onUpdate, onReorder, onDelete, onOpenPrint }) => {
+}> = ({ atps, tps, subjects, analyses, settings, dark, counts, onNavigate, onAddMany, onUpdate, onReorder, onDelete, onOpenPrint }) => {
+  const [subjectIdState, setSubjectIdState] = useState('');
+  const subjectId = subjects.some((s) => s.id === subjectIdState) ? subjectIdState : subjects[0]?.id || '';
+  const subject = subjects.find((s) => s.id === subjectId);
+
+  const [tpIdState, setTpIdState] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [subjectId, setSubjectId] = useState(subjects[0]?.id || '');
-  const [kodeTp, setKodeTp] = useState('TP.10.1');
-  const [tpText, setTpText] = useState('');
-  const [lingkup, setLingkup] = useState('');
+  const [semester, setSemester] = useState<'Ganjil' | 'Genap'>(settings.semester);
   const [jp, setJp] = useState(12);
+  const [prinsip, setPrinsip] = useState(PRINSIP_OPTIONS[0]);
+  const [formError, setFormError] = useState('');
 
   const sortedAtps = [...atps].sort((a, b) => a.urutan - b.urutan);
+  const visible = sortedAtps.filter((a) => a.subjectId === subjectId);
+  const availableTps = tps
+    .filter((x) => x.subjectId === subjectId && !atps.some((a) => a.tpId === x.id))
+    .sort(compareTp);
+  const tpId = availableTps.some((x) => x.id === tpIdState) ? tpIdState : availableTps[0]?.id || '';
+  const editingItem = atps.find((a) => a.id === editingId);
 
-  const resetForm = () => {
-    setEditingId(null);
-    setKodeTp(`TP.10.${sortedAtps.length + 1}`);
-    setTpText('');
-    setLingkup('');
-    setJp(12);
-  };
-
-  const moveItem = (index: number, dir: -1 | 1) => {
-    const target = index + dir;
-    if (target < 0 || target >= sortedAtps.length) return;
-    const copy = [...sortedAtps];
-    const [removed] = copy.splice(index, 1);
-    copy.splice(target, 0, removed);
-    const reindexed = copy.map((item, idx) => ({ ...item, urutan: idx + 1 }));
-    onReorder(reindexed);
-  };
+  const totalJp = (sem?: 'Ganjil' | 'Genap') =>
+    visible.filter((a) => !sem || a.semester === sem).reduce((s, a) => s + (Number(a.alokasiJp) || 0), 0);
 
   const inputCls = `w-full px-3.5 py-2.5 rounded-xl border text-sm min-h-[44px] ${
     dark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
   }`;
+  const cardCls = `rounded-2xl border ${dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'}`;
+
+  const resetForm = () => {
+    setEditingId(null);
+    setFormError('');
+    setJp(12);
+  };
+
+  const buildAtp = (tp: LearningObjective): ATPItem => {
+    const src = analyses.filter((a) => tp.analysisIds.includes(a.id));
+    return {
+      id: uid('atp'),
+      subjectId: tp.subjectId,
+      analysisId: src[0]?.id || '',
+      tpId: tp.id,
+      tingkat: tp.tingkat,
+      prinsipUrutan: prinsip,
+      fase: tp.fase,
+      tahunAjaran: settings.tahunAjaran,
+      semester,
+      elemen: tp.elemen,
+      kodeTp: tp.kodeTp,
+      tujuanPembelajaran: tp.rumusan,
+      kompetensi: src.map((a) => a.kompetensi).join('; '),
+      lingkupMateri: Array.from(new Set(src.map((a) => a.lingkupMateri))).join('; '),
+      urutan: 0, // diberi nomor urut final oleh penyimpan data
+      alokasiJp: jp,
+      keterangan: '',
+    };
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+    if (!(jp > 0)) {
+      setFormError('Alokasi waktu harus lebih dari 0 JP.');
+      return;
+    }
+    if (editingItem) {
+      onUpdate({ ...editingItem, alokasiJp: jp, semester, prinsipUrutan: prinsip });
+      resetForm();
+      return;
+    }
+    const tp = availableTps.find((x) => x.id === tpId);
+    if (!tp) {
+      setFormError('Pilih TP yang akan dimasukkan ke ATP.');
+      return;
+    }
+    onAddMany([buildAtp(tp)]);
+    setTpIdState('');
+  };
+
+  const addAllRemaining = () => {
+    if (!(jp > 0)) {
+      setFormError('Alokasi waktu harus lebih dari 0 JP.');
+      return;
+    }
+    setFormError('');
+    onAddMany(availableTps.map(buildAtp));
+    setTpIdState('');
+  };
+
+  const startEdit = (item: ATPItem) => {
+    setEditingId(item.id);
+    setJp(item.alokasiJp);
+    setSemester(item.semester);
+    setPrinsip(item.prinsipUrutan || PRINSIP_OPTIONS[0]);
+    setFormError('');
+  };
+
+  // Menggeser urutan di antara TP pada mata pelajaran yang sama (urutan global tetap konsisten)
+  const moveItem = (visibleIndex: number, dir: -1 | 1) => {
+    const a = visible[visibleIndex];
+    const b = visible[visibleIndex + dir];
+    if (!a || !b) return;
+    const copy = [...sortedAtps];
+    const ia = copy.findIndex((x) => x.id === a.id);
+    const ib = copy.findIndex((x) => x.id === b.id);
+    [copy[ia], copy[ib]] = [copy[ib], copy[ia]];
+    onReorder(copy.map((item, idx) => ({ ...item, urutan: idx + 1 })));
+  };
+
+  if (subjects.length === 0) {
+    return (
+      <div className="space-y-6">
+        <AlurStepper current="atp" counts={counts} dark={dark} onNavigate={onNavigate} />
+        <div className={`${cardCls} p-6 text-sm`}>Belum ada mata pelajaran.</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
+      <AlurStepper current="atp" counts={counts} dark={dark} onNavigate={onNavigate} />
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="font-bold text-base">Alur Tujuan Pembelajaran (ATP)</h3>
-          <p className="text-xs text-slate-500">Susun urutan logis Tujuan Pembelajaran dan alokasi JP.</p>
+          <p className="text-xs text-slate-500">
+            Urutkan TP secara logis dari awal hingga akhir fase, lalu tentukan alokasi waktu (JP) tiap TP.
+          </p>
         </div>
         <button
+          disabled={visible.length === 0}
           onClick={() =>
             onOpenPrint(
-              `ALUR TUJUAN PEMBELAJARAN (ATP) — T.A. ${settings.tahunAjaran}`,
+              `ALUR TUJUAN PEMBELAJARAN (ATP) — ${subject?.namaMapel || ''} — T.A. ${settings.tahunAjaran}`,
               <table className="w-full border-collapse border border-slate-800 text-xs">
                 <thead>
                   <tr className="bg-slate-100">
                     <th className="border border-slate-800 p-2">No</th>
                     <th className="border border-slate-800 p-2">Kode TP</th>
+                    <th className="border border-slate-800 p-2">Kelas</th>
+                    <th className="border border-slate-800 p-2">Smt</th>
                     <th className="border border-slate-800 p-2">Elemen</th>
                     <th className="border border-slate-800 p-2">Tujuan Pembelajaran</th>
                     <th className="border border-slate-800 p-2">Lingkup Materi</th>
@@ -4799,10 +5883,12 @@ const ATPView: React.FC<{
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedAtps.map((a, i) => (
+                  {visible.map((a, i) => (
                     <tr key={a.id}>
                       <td className="border border-slate-800 p-2 text-center">{i + 1}</td>
                       <td className="border border-slate-800 p-2 font-bold">{a.kodeTp}</td>
+                      <td className="border border-slate-800 p-2 text-center">{a.tingkat || '-'}</td>
+                      <td className="border border-slate-800 p-2 text-center">{a.semester}</td>
                       <td className="border border-slate-800 p-2">{a.elemen}</td>
                       <td className="border border-slate-800 p-2">{a.tujuanPembelajaran}</td>
                       <td className="border border-slate-800 p-2">{a.lingkupMateri}</td>
@@ -4813,118 +5899,171 @@ const ATPView: React.FC<{
               </table>
             )
           }
-          className="px-4 py-2.5 rounded-xl bg-[#178C8C] text-white text-xs font-semibold flex items-center gap-2 min-h-[44px]"
+          className="px-4 py-2.5 rounded-xl bg-[#178C8C] disabled:opacity-40 text-white text-xs font-semibold flex items-center gap-2 min-h-[44px]"
         >
           <Printer size={16} /> Pratinjau Cetak ATP
         </button>
       </div>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          const sub = subjects.find((s) => s.id === (subjectId || subjects[0]?.id));
-          if (!sub || !tpText.trim()) return;
-          const existing = atps.find((a) => a.id === editingId);
-          const payload: ATPItem = {
-            id: editingId || uid('atp'),
-            subjectId: sub.id,
-            analysisId: existing?.analysisId || analyses[0]?.id || '',
-            fase: sub.fase,
-            tahunAjaran: settings.tahunAjaran,
-            semester: settings.semester,
-            elemen: sub.namaMapel,
-            kodeTp,
-            tujuanPembelajaran: tpText,
-            kompetensi: tpText.split(' ')[0] || 'Menerapkan',
-            lingkupMateri: lingkup,
-            urutan: existing ? existing.urutan : sortedAtps.length + 1,
-            alokasiJp: jp,
-            keterangan: existing?.keterangan || '',
-          };
-          if (editingId) {
-            onUpdate(payload);
-          } else {
-            onAdd(payload);
-          }
-          resetForm();
-        }}
-        className={`p-5 rounded-2xl border grid grid-cols-1 md:grid-cols-6 gap-3 ${
-          dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'
-        }`}
-      >
-        <input className={inputCls} placeholder="Kode TP" value={kodeTp} onChange={(e) => setKodeTp(e.target.value)} required />
-        <select className={inputCls} value={subjectId || subjects[0]?.id || ''} onChange={(e) => setSubjectId(e.target.value)}>
-          {subjects.map((s) => (
-            <option key={s.id} value={s.id}>{s.namaMapel}</option>
-          ))}
-        </select>
-        <input className={`${inputCls} md:col-span-2`} placeholder="Rumusan Tujuan Pembelajaran (Kompetensi + Materi)" value={tpText} onChange={(e) => setTpText(e.target.value)} required />
-        <input className={inputCls} placeholder="Lingkup Materi" value={lingkup} onChange={(e) => setLingkup(e.target.value)} />
-        <div className="flex gap-2">
-          <input type="number" className={inputCls} value={jp} onChange={(e) => setJp(Number(e.target.value))} title="JP" />
-          <button type="submit" className="px-4 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm shrink-0">
-            {editingId ? 'Update' : '+ TP'}
-          </button>
-          {editingId && (
-            <button type="button" onClick={resetForm} className="px-3 py-2.5 rounded-xl border text-xs font-semibold shrink-0">
-              Batal
-            </button>
-          )}
+      <div className={`${cardCls} p-5 space-y-4`}>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex-1 min-w-[220px]">
+            <label className="block text-xs font-semibold mb-1">Mata Pelajaran</label>
+            <select
+              className={inputCls}
+              value={subjectId}
+              onChange={(e) => {
+                setSubjectIdState(e.target.value);
+                setTpIdState('');
+                resetForm();
+              }}
+            >
+              {subjects.map((s) => (
+                <option key={s.id} value={s.id}>{s.namaMapel} (Fase {s.fase})</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs font-semibold">
+            <span className="px-3 py-2 rounded-xl bg-[#173B70]/10 text-[#173B70] dark:bg-blue-900/40 dark:text-blue-200">Ganjil: {totalJp('Ganjil')} JP</span>
+            <span className="px-3 py-2 rounded-xl bg-[#173B70]/10 text-[#173B70] dark:bg-blue-900/40 dark:text-blue-200">Genap: {totalJp('Genap')} JP</span>
+            <span className="px-3 py-2 rounded-xl bg-[#178C8C]/15 text-[#178C8C]">Total: {totalJp()} JP</span>
+          </div>
         </div>
-      </form>
 
-      <div className="space-y-2.5">
-        {sortedAtps.map((item, idx) => (
-          <div
-            key={item.id}
-            className={`p-4 rounded-2xl border flex items-center justify-between gap-4 ${
-              dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'
-            }`}
-          >
-            <div className="flex items-start gap-3">
-              <span className="w-8 h-8 rounded-xl bg-[#173B70] text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
-                {idx + 1}
-              </span>
+        {availableTps.length === 0 && !editingItem ? (
+          <div className="text-sm text-slate-500">
+            {tps.some((x) => x.subjectId === subjectId)
+              ? 'Semua TP pada mata pelajaran ini sudah masuk ATP.'
+              : 'Belum ada Tujuan Pembelajaran untuk mata pelajaran ini.'}{' '}
+            <button type="button" onClick={() => onNavigate('tp')} className="text-[#178C8C] font-semibold underline">
+              Buka halaman TP
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <h4 className="font-bold text-sm">{editingItem ? `Atur ${editingItem.kodeTp}` : 'Tambahkan TP ke ATP'}</h4>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div className="md:col-span-2">
+                <label className="block text-[11px] font-semibold mb-1">Tujuan Pembelajaran</label>
+                {editingItem ? (
+                  <div className={`${inputCls} flex items-center text-xs`}>
+                    {editingItem.kodeTp} — {editingItem.tujuanPembelajaran.slice(0, 80)}
+                    {editingItem.tujuanPembelajaran.length > 80 ? '…' : ''}
+                  </div>
+                ) : (
+                  <select className={inputCls} value={tpId} onChange={(e) => setTpIdState(e.target.value)}>
+                    {availableTps.map((x) => (
+                      <option key={x.id} value={x.id}>
+                        {x.kodeTp} — {x.rumusan.length > 70 ? `${x.rumusan.slice(0, 70)}…` : x.rumusan}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
               <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-bold text-[#178C8C]">{item.kodeTp}</span>
-                  <span className="text-xs px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 font-semibold">
-                    {item.alokasiJp} JP
-                  </span>
-                  <span className="text-xs text-slate-500">{item.lingkupMateri}</span>
-                </div>
-                <p className="text-sm font-medium mt-1">{item.tujuanPembelajaran}</p>
+                <label className="block text-[11px] font-semibold mb-1">Semester</label>
+                <select className={inputCls} value={semester} onChange={(e) => setSemester(e.target.value as 'Ganjil' | 'Genap')}>
+                  <option value="Ganjil">Ganjil</option>
+                  <option value="Genap">Genap</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold mb-1">Alokasi (JP)</label>
+                <input type="number" min={1} className={inputCls} value={jp} onChange={(e) => setJp(Number(e.target.value))} />
               </div>
             </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <button type="button" onClick={() => moveItem(idx, -1)} disabled={idx === 0} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30" title="Geser Naik">
-                <ArrowUp size={16} />
-              </button>
-              <button type="button" onClick={() => moveItem(idx, 1)} disabled={idx === sortedAtps.length - 1} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30" title="Geser Turun">
-                <ArrowDown size={16} />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingId(item.id);
-                  setSubjectId(item.subjectId);
-                  setKodeTp(item.kodeTp);
-                  setTpText(item.tujuanPembelajaran);
-                  setLingkup(item.lingkupMateri);
-                  setJp(item.alokasiJp);
-                }}
-                className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg"
-                title="Edit TP"
-              >
-                <Edit3 size={16} />
-              </button>
-              <button type="button" onClick={() => onDelete(item.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg" title="Hapus TP">
-                <Trash2 size={16} />
-              </button>
+            <div>
+              <label className="block text-[11px] font-semibold mb-1">Prinsip pengurutan</label>
+              <select className={inputCls} value={prinsip} onChange={(e) => setPrinsip(e.target.value)}>
+                {PRINSIP_OPTIONS.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
             </div>
-          </div>
-        ))}
+
+            {formError && (
+              <div className="p-3 rounded-xl bg-rose-500/15 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-2" role="alert">
+                <AlertTriangle size={15} className="shrink-0" /> {formError}
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <button type="submit" className="px-5 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm min-h-[44px]">
+                {editingItem ? 'Simpan Perubahan' : '+ Tambahkan ke ATP'}
+              </button>
+              {!editingItem && availableTps.length > 1 && (
+                <button
+                  type="button"
+                  onClick={addAllRemaining}
+                  className="px-4 py-2.5 rounded-xl border border-[#178C8C] text-[#178C8C] text-sm font-semibold min-h-[44px]"
+                >
+                  Tambahkan semua TP yang tersisa ({availableTps.length})
+                </button>
+              )}
+              {editingItem && (
+                <button type="button" onClick={resetForm} className="px-4 py-2.5 rounded-xl border text-sm font-semibold min-h-[44px]">
+                  Batal
+                </button>
+              )}
+            </div>
+          </form>
+        )}
       </div>
+
+      <div className="space-y-2.5">
+        {visible.length === 0 ? (
+          <div className={`${cardCls} p-6 text-sm text-slate-500`}>Belum ada TP dalam ATP untuk mata pelajaran ini.</div>
+        ) : (
+          visible.map((item, idx) => (
+            <div key={item.id} className={`${cardCls} p-4 flex items-center justify-between gap-4`}>
+              <div className="flex items-start gap-3 min-w-0">
+                <span className="w-8 h-8 rounded-xl bg-[#173B70] text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                  {idx + 1}
+                </span>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-bold text-[#178C8C]">{item.kodeTp}</span>
+                    {item.tingkat && (
+                      <span className="text-xs px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 font-semibold">Kelas {item.tingkat}</span>
+                    )}
+                    <span className="text-xs px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 font-semibold">{item.semester}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-md bg-[#173B70]/10 text-[#173B70] dark:bg-blue-900/50 dark:text-blue-200 font-semibold">
+                      {item.alokasiJp} JP
+                    </span>
+                    {item.prinsipUrutan && <span className="text-[11px] text-slate-500">{item.prinsipUrutan}</span>}
+                  </div>
+                  <p className="text-sm font-medium mt-1">{item.tujuanPembelajaran}</p>
+                  {item.lingkupMateri && <p className="text-[11px] text-slate-500 mt-0.5">Materi: {item.lingkupMateri}</p>}
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button type="button" onClick={() => moveItem(idx, -1)} disabled={idx === 0} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30" title="Geser Naik">
+                  <ArrowUp size={16} />
+                </button>
+                <button type="button" onClick={() => moveItem(idx, 1)} disabled={idx === visible.length - 1} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30" title="Geser Turun">
+                  <ArrowDown size={16} />
+                </button>
+                <button type="button" onClick={() => startEdit(item)} className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg" title="Atur JP, semester, prinsip">
+                  <Edit3 size={16} />
+                </button>
+                <button type="button" onClick={() => onDelete(item.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg" title="Hapus dari ATP">
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {visible.length > 0 && (
+        <p className="text-[11px] text-slate-400">
+          Untuk mengubah rumusan TP, gunakan halaman{' '}
+          <button type="button" onClick={() => onNavigate('tp')} className="underline text-[#178C8C] font-semibold">
+            Tujuan Pembelajaran
+          </button>
+          ; perubahan otomatis ikut diselaraskan ke ATP.
+        </p>
+      )}
     </div>
   );
 };
