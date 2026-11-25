@@ -7,7 +7,7 @@ import {
   Sun, Moon, Cloud, Database, AlertTriangle, CheckCircle2, Info, Printer,
   Plus, Trash2, Edit3, ArrowUp, ArrowDown, Download, Upload, Sparkles,
   ShieldCheck, Copy, Check, RotateCcw, Lock, LogOut, Eye, EyeOff,
-  KeyRound, User, Search, ListChecks
+  KeyRound, User, Search, ListChecks, ChevronDown
 } from 'lucide-react';
 
 // ============================================================================
@@ -45,6 +45,7 @@ const APP_CONFIG = {
   legacyKeys: ['mototeach_workspace_v1_session', 'mototeach_workspace_v1_pwd_hash'],
   cloudVersionKey: 'mototeach_workspace_v1_cloud_version',
   dirtyKey: 'mototeach_workspace_v1_dirty',
+  navGroupsKey: 'mototeach_workspace_v1_nav_groups',
 };
 
 // ============================================================================
@@ -224,31 +225,78 @@ interface PromesItem {
   keterangan: string;
 }
 
+// Perencanaan Pembelajaran Mendalam (dahulu "Modul Ajar"). Kerangka: Panduan Pembelajaran Mendalam,
+// Kemendikdasmen: Identifikasi, Desain Pembelajaran, Pengalaman Belajar, Asesmen.
 interface TeachingModule {
   id: string;
   judulModul: string;
   subjectId: string;
   classId: string;
   atpId: string;
+  tpId: string;
   fase: 'E' | 'F';
+  tingkat: 'X' | 'XI' | 'XII';
   semester: 'Ganjil' | 'Genap';
   tahunAjaran: string;
-  alokasiWaktu: string;
-  kompetensiAwal: string;
-  profilLulusan: string;
-  pemahamanBermakna: string;
-  pertanyaanPemantik: string;
-  modelPembelajaran: string;
+  alokasiWaktu: string; // ringkasan turunan dari JP x menit x pertemuan
+  // Identitas
+  bidangKeahlian: string;
+  programKeahlian: string;
+  konsentrasiKeahlian: string;
+  jpPerPertemuan: number;
+  menitPerJp: number;
+  jumlahPertemuan: number;
+  sistemPenjadwalan: string;
+  // 1. Identifikasi
+  idPesertaDidik: string;
+  idMateriPelajaran: string;
+  dimensiProfil: string[];
+  // 2. Desain Pembelajaran
+  capaianPembelajaran: string;
+  lintasDisiplin: string;
+  tujuanPembelajaran: string;
+  topikPembelajaran: string;
+  praktikPedagogis: string;
+  kemitraan: string;
+  lingkunganBudaya: string;
+  lingkunganRuangFisik: string;
+  lingkunganRuangVirtual: string;
+  pemanfaatanDigital: string;
+  // 3. Pengalaman Belajar
+  awalPrinsip: string[];
+  awalKegiatan: string;
+  memahamiPrinsip: string[];
+  memahamiKegiatan: string;
+  mengaplikasiPrinsip: string[];
+  mengaplikasiKegiatan: string;
+  merefleksiPrinsip: string[];
+  merefleksiKegiatan: string;
+  penutupPrinsip: string[];
+  penutupKegiatan: string;
+  // 4. Asesmen
+  asesmenAwal: string;
+  asesmenProses: string;
+  asesmenAkhir: string;
+  // Tambahan (di luar kerangka resmi)
   mediaSumber: string;
-  pendahuluan: string;
-  kegiatanInti: string;
-  penutup: string;
-  asesmenDiagnostik: string;
-  asesmenFormatif: string;
-  asesmenSumatif: string;
   remedialPengayaan: string;
+  // Sisa data format lama yang tidak punya padanan otomatis (mis. kegiatan inti): untuk disalin manual
+  catatanMigrasi: string;
+  schemaVersion: number;
   status: 'Draft' | 'Final' | 'Arsip';
   updatedAt: string;
+  // Field format lama (dipertahankan agar data lama tidak hilang)
+  kompetensiAwal?: string;
+  profilLulusan?: string;
+  pemahamanBermakna?: string;
+  pertanyaanPemantik?: string;
+  modelPembelajaran?: string;
+  pendahuluan?: string;
+  kegiatanInti?: string;
+  penutup?: string;
+  asesmenDiagnostik?: string;
+  asesmenFormatif?: string;
+  asesmenSumatif?: string;
 }
 
 interface Jobsheet {
@@ -667,27 +715,53 @@ const createDemoDatabase = (): WorkspaceDatabase => {
     modules: [
       {
         id: 'mod-01',
-        judulModul: 'Modul Ajar: Penyetelan Celah Katup & Pemeriksaan Tekanan Kompresi',
+        judulModul: 'Penyetelan Celah Katup dan Pemeriksaan Tekanan Kompresi',
         subjectId: sub1,
         classId: cls1,
         atpId: atp2,
+        tpId: tp2,
         fase: 'F',
+        tingkat: 'XI',
         semester: 'Ganjil',
         tahunAjaran: '2026/2027',
         alokasiWaktu: '3 Pertemuan (18 JP x 45 Menit)',
-        kompetensiAwal: 'Peserta didik memahami prinsip kerja motor bakar 4 langkah (hisap, kompresi, usaha, buang) dan mampu menggunakan kunci pas/ring serta feeler gauge.',
-        profilLulusan: 'Penalaran Kritis, Kemandirian, Kolaborasi, Keselamatan Kerja Industri (5R/5S)',
-        pemahamanBermakna: 'Ketepatan celah katup sangat menentukan efisiensi volumetrik, tenaga mesin, konsumsi bahan bakar, dan keawetan komponen valve train.',
-        pertanyaanPemantik: 'Mengapa mesin sepeda motor terdengar suara berisik (ngelitik) di bagian kepala silinder saat panas, atau justru sulit hidup saat dingin?',
-        modelPembelajaran: 'Teaching Factory (TeFa) & Project Based Learning (PjBL)',
-        mediaSumber: 'Unit Sepeda Motor Honda Supra X 125 / Beat FI, BPR Resmi, Feeler Gauge, Kunci L Penyetel Katup, Video Animasi Valve Timing.',
-        pendahuluan: '1. Salam, doa bersama, dan pemeriksaan kelengkapan APD (wearpack & safety shoes).\n2. Safety briefing 5 menit sebelum masuk area stall bengkel.\n3. Apersepsi suara mesin dengan celah katup terlalu renggang vs terlalu rapat.',
-        kegiatanInti: '1. Orientasi Masalah: Siswa mengamati gejala mesin brebet & kompresi rendah pada unit praktik.\n2. Eksplorasi BPR: Siswa mencari data spesifikasi celah katup IN dan EX pada Buku Pedoman Reparasi.\n3. Praktik Terbimbing: Menempatkan piston pada posisi TMA langkah kompresi (tanda T sejajar indeks), mengukur celah dengan feeler gauge, dan menyetel sesuai standar.\n4. Uji Nyala & Verifikasi: Menghidupkan mesin, memeriksa kebocoran oli, serta mencatat hasil pada Jobsheet.',
-        penutup: '1. Penerapan 5R (Ringkas, Rapi, Resik, Rawat, Rajin) pada stall dan tool caddy.\n2. Refleksi temuan kendala saat mencari posisi TMA.\n3. Penyampaian agenda praktik berikutnya.',
-        asesmenDiagnostik: 'Kuis singkat 5 soal tentang siklus 4-tak dan pembacaan skala feeler gauge.',
-        asesmenFormatif: 'Observasi sikap kerja K3, ketepatan mencari posisi TMA, dan lembar kerja Jobsheet.',
-        asesmenSumatif: 'Uji kinerja individu penyetelan katup berdurasi maksimal 25 menit dengan toleransi +/- 0.02 mm.',
-        remedialPengayaan: 'Remedial: Pendampingan ulang pembacaan tanda TOP magnet dan feeler gauge. Pengayaan: Penyetelan katup tipe shim (DOHC).',
+        bidangKeahlian: 'Teknologi Manufaktur dan Rekayasa',
+        programKeahlian: 'Teknik Otomotif',
+        konsentrasiKeahlian: 'Teknik Sepeda Motor',
+        jpPerPertemuan: 6,
+        menitPerJp: 45,
+        jumlahPertemuan: 3,
+        sistemPenjadwalan: 'Blok',
+        idPesertaDidik: 'Peserta didik sudah mengenal siklus motor 4 langkah dan penggunaan alat ukur dasar, tetapi kemampuan membaca skala feeler gauge dan menentukan posisi TMA masih bervariasi. Sebagian besar menunjukkan minat tinggi pada praktik langsung di bengkel.',
+        idMateriPelajaran: 'Materi bersifat prosedural dan aplikatif: pengetahuan esensial (mekanisme katup dan siklus 4 langkah), aplikatif (pengukuran dan penyetelan celah katup), serta nilai dan karakter (disiplin K3LH dan budaya kerja 5R). Tingkat kesulitan sedang dan tersusun berjenjang dari konsep ke praktik.',
+        dimensiProfil: ['Penalaran Kritis', 'Kolaborasi', 'Kemandirian', 'Kesehatan'],
+        capaianPembelajaran: '[CONTOH DEMO — Silakan ganti dengan teks resmi Keputusan Kepala BSKAP terbaru] Pada akhir fase F, peserta didik mampu mendiagnosis gangguan atau kerusakan pada engine sepeda motor meliputi komponen utama engine, sistem pelumasan, sistem pendinginan, sistem bahan bakar, serta melakukan tindakan perawatan dan perbaikan sesuai SOP buku pedoman reparasi (BPR).',
+        lintasDisiplin: 'Matematika (satuan dan ketelitian pengukuran), Fisika (termodinamika motor bakar), Bahasa Inggris teknik (membaca BPR).',
+        tujuanPembelajaran: 'Melakukan pemeriksaan, pengukuran celah katup, dan penyetelan mekanisme katup sepeda motor 4 langkah sesuai standar pabrikan.',
+        topikPembelajaran: 'Penyetelan celah katup pada sepeda motor 4 langkah',
+        praktikPedagogis: 'Pembelajaran Berbasis Proyek (PjBL) dengan pendekatan Teaching Factory; demonstrasi, praktik terbimbing, dan diskusi kelompok kecil.',
+        kemitraan: 'Instruktur bengkel resmi/dealer sepeda motor (DUDI) sebagai narasumber tamu; kolaborasi antar guru produktif.',
+        lingkunganBudaya: 'Budaya kerja industri: disiplin K3LH, 5R, saling mengingatkan, aman bertanya, dan menghargai kerja tim.',
+        lingkunganRuangFisik: 'Bengkel TSM (stall unit praktik) dan ruang kelas untuk teori singkat.',
+        lingkunganRuangVirtual: 'Kelas daring (LMS) untuk BPR digital, video valve timing, dan jurnal refleksi.',
+        pemanfaatanDigital: 'Video animasi valve timing, BPR digital, kuis formatif daring, portofolio digital hasil praktik.',
+        awalPrinsip: ['Berkesadaran', 'Bermakna'],
+        awalKegiatan: '1. Salam, doa bersama, pemeriksaan APD (wearpack dan safety shoes), dan safety briefing.\n2. Video singkat perbandingan suara mesin dengan celah katup normal dan tidak normal.\n3. Pertanyaan pemantik: Mengapa mesin berisik di kepala silinder saat panas, atau sulit hidup saat dingin?\n4. Penyampaian tujuan pembelajaran dan kaitannya dengan pekerjaan mekanik di bengkel.',
+        memahamiPrinsip: ['Berkesadaran', 'Bermakna'],
+        memahamiKegiatan: '1. Peserta didik membaca BPR untuk menemukan spesifikasi celah katup IN/EX dan prosedur penyetelan.\n2. Diskusi kelompok tentang pengaruh celah katup terhadap tenaga, konsumsi bahan bakar, dan umur komponen.\n3. Membuat peta konsep mekanisme katup dan siklus 4 langkah.',
+        mengaplikasiPrinsip: ['Bermakna', 'Menggembirakan'],
+        mengaplikasiKegiatan: '1. Menentukan posisi TMA langkah kompresi pada unit praktik.\n2. Mengukur dan menyetel celah katup dengan feeler gauge sesuai standar, bekerja berpasangan dengan pembagian peran.\n3. Menghidupkan mesin, memeriksa kebocoran oli, dan mencatat hasil pada Jobsheet.\n4. Proyek mini: mendiagnosis unit dengan keluhan suara berisik dan menyusun rekomendasi perbaikan.',
+        merefleksiPrinsip: ['Berkesadaran', 'Bermakna'],
+        merefleksiKegiatan: '1. Presentasi hasil praktik dan umpan balik dari teman, guru, dan instruktur tamu.\n2. Jurnal refleksi individu: kendala saat mencari posisi TMA dan strategi memperbaikinya.\n3. Penilaian diri terhadap pencapaian tujuan pembelajaran dan rencana tindak lanjut.',
+        penutupPrinsip: ['Berkesadaran'],
+        penutupKegiatan: '1. Guru dan peserta didik menyimpulkan pembelajaran.\n2. Penerapan 5R pada stall dan tool caddy.\n3. Merencanakan praktik berikutnya dan menghargai pencapaian peserta didik.',
+        asesmenAwal: 'Kuis singkat 5 soal tentang siklus 4 langkah dan pembacaan skala feeler gauge; pertanyaan diagnostik lisan.',
+        asesmenProses: 'Observasi sikap kerja K3LH dan kerja sama, umpan balik formatif saat praktik, peta konsep, serta lembar kerja Jobsheet.',
+        asesmenAkhir: 'Uji kinerja individu penyetelan celah katup (maks. 25 menit, toleransi +/- 0,02 mm), jurnal refleksi, dan tes tertulis singkat.',
+        mediaSumber: 'Unit sepeda motor Honda Supra X 125 / Beat FI, BPR resmi, feeler gauge, kunci penyetel katup, video animasi valve timing.',
+        remedialPengayaan: 'Remedial: pendampingan ulang pembacaan tanda TOP magnet dan feeler gauge. Pengayaan: penyetelan katup tipe shim (DOHC).',
+        catatanMigrasi: '',
+        schemaVersion: 2,
         status: 'Final',
         updatedAt: todayISO(),
       },
@@ -913,6 +987,157 @@ const migrateLearningObjectives = (d: any): any => {
   return { ...d, tps: nextTps, atps: nextAtps };
 };
 
+// ---- Perencanaan Pembelajaran Mendalam -----------------------------------------
+const DIMENSI_PROFIL = [
+  'Keimanan dan Ketakwaan terhadap Tuhan YME',
+  'Kewargaan',
+  'Penalaran Kritis',
+  'Kreativitas',
+  'Kolaborasi',
+  'Kemandirian',
+  'Kesehatan',
+  'Komunikasi',
+];
+const PRINSIP_PM = ['Berkesadaran', 'Bermakna', 'Menggembirakan'];
+const SISTEM_PENJADWALAN = ['Blok', 'Reguler (Mingguan)'];
+const DEFAULT_BIDANG_KEAHLIAN = 'Teknologi Manufaktur dan Rekayasa';
+
+const faseOfTingkat = (t: 'X' | 'XI' | 'XII'): 'E' | 'F' => (t === 'X' ? 'E' : 'F');
+const semesterLabel = (s: 'Ganjil' | 'Genap'): string => (s === 'Ganjil' ? '1 (Satu)' : '2 (Dua)');
+const jamPelajaranText = (m: { jpPerPertemuan: number; menitPerJp: number; jumlahPertemuan: number }): string =>
+  `${m.jpPerPertemuan} JP x ${m.menitPerJp} menit x ${m.jumlahPertemuan} pertemuan`;
+const alokasiRingkas = (m: { jpPerPertemuan: number; menitPerJp: number; jumlahPertemuan: number }): string =>
+  `${m.jumlahPertemuan} Pertemuan (${m.jpPerPertemuan * m.jumlahPertemuan} JP x ${m.menitPerJp} Menit)`;
+const schoolShortName = (t: { namaSekolah?: string }): string =>
+  !t.namaSekolah || t.namaSekolah === APP_CONFIG.schoolDefault.namaSekolah
+    ? APP_CONFIG.schoolDefault.namaSekolahSingkat
+    : t.namaSekolah;
+
+const hasText = (v?: string): boolean => !!(v && v.trim());
+
+// Butir WAJIB menurut kerangka (hlm. 38-39 panduan); butir lain bersifat opsional.
+const planChecklist = (m: TeachingModule): { key: string; label: string; ok: boolean }[] => [
+  { key: 'dimensi', label: 'Dimensi profil lulusan', ok: (m.dimensiProfil || []).length > 0 },
+  { key: 'tujuan', label: 'Tujuan pembelajaran', ok: hasText(m.tujuanPembelajaran) },
+  { key: 'pedagogis', label: 'Praktik pedagogis', ok: hasText(m.praktikPedagogis) },
+  {
+    key: 'lingkungan',
+    label: 'Lingkungan pembelajaran',
+    ok: hasText(m.lingkunganBudaya) || hasText(m.lingkunganRuangFisik) || hasText(m.lingkunganRuangVirtual),
+  },
+  { key: 'memahami', label: 'Pengalaman belajar: Memahami', ok: hasText(m.memahamiKegiatan) },
+  { key: 'mengaplikasi', label: 'Pengalaman belajar: Mengaplikasi', ok: hasText(m.mengaplikasiKegiatan) },
+  { key: 'merefleksi', label: 'Pengalaman belajar: Merefleksi', ok: hasText(m.merefleksiKegiatan) },
+  { key: 'asesmenAwal', label: 'Asesmen awal pembelajaran', ok: hasText(m.asesmenAwal) },
+  { key: 'asesmenProses', label: 'Asesmen proses pembelajaran', ok: hasText(m.asesmenProses) },
+  { key: 'asesmenAkhir', label: 'Asesmen akhir pembelajaran', ok: hasText(m.asesmenAkhir) },
+];
+
+const cpTextForTp = (tp: LearningObjective | undefined, analyses: CPAnalysis[], cps: LearningOutcome[]): string => {
+  if (!tp) return '';
+  const cpIds = Array.from(new Set(analyses.filter((a) => tp.analysisIds.includes(a.id)).map((a) => a.cpId)));
+  return cps
+    .filter((c) => cpIds.includes(c.id))
+    .map((c) => c.deskripsiCp)
+    .join('\n');
+};
+
+const parseAlokasi = (s: string): { jpPerPertemuan: number; menitPerJp: number; jumlahPertemuan: number } => {
+  const str = String(s || '');
+  const num = (re: RegExp): number => {
+    const m = re.exec(str);
+    const n = m ? parseInt(m[1], 10) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  };
+  const pertemuan = num(/(\d+)\s*pertemuan/i) || 1;
+  const totalJp = num(/(\d+)\s*JP/i);
+  const menit = num(/(\d+)\s*menit/i) || 45;
+  return {
+    jumlahPertemuan: pertemuan,
+    jpPerPertemuan: totalJp ? Math.max(1, Math.round(totalJp / pertemuan)) : 4,
+    menitPerJp: menit,
+  };
+};
+
+const matchDimensi = (dim: string, part: string): boolean =>
+  dim.startsWith('Keimanan') ? /keimanan|ketakwaan/i.test(part) : part.toLowerCase().includes(dim.toLowerCase());
+
+// Data lama (format "Modul Ajar") dipetakan ke kerangka baru. Hasilnya deterministik (sama di setiap
+// perangkat) dan idempoten. Teks "kegiatan inti" lama TIDAK dipecah otomatis karena tidak dapat
+// dipastikan mana yang termasuk memahami/mengaplikasi/merefleksi: disimpan di catatanMigrasi.
+const upgradeModule = (m: any, d: any): TeachingModule => {
+  const subjects: Subject[] = d.subjects || [];
+  const atps: ATPItem[] = d.atps || [];
+  const tps: LearningObjective[] = d.tps || [];
+  const analyses: CPAnalysis[] = d.cpAnalyses || [];
+  const cps: LearningOutcome[] = d.cps || [];
+  const subj = subjects.find((s) => s.id === m.subjectId);
+  const atp = atps.find((a) => a.id === m.atpId);
+  const tp = tps.find((x) => x.id === (m.tpId || atp?.tpId));
+  const tingkat: 'X' | 'XI' | 'XII' = m.tingkat || subj?.tingkat || tp?.tingkat || atp?.tingkat || (m.fase === 'E' ? 'X' : 'XI');
+
+  const parts = String(m.profilLulusan || '')
+    .split(',')
+    .map((x: string) => x.trim())
+    .filter(Boolean);
+  const dimensi = DIMENSI_PROFIL.filter((dim) => parts.some((p: string) => matchDimensi(dim, p)));
+  const profilSisa = parts.filter((p: string) => !DIMENSI_PROFIL.some((dim) => matchDimensi(dim, p)));
+
+  const catatan: string[] = [];
+  if (hasText(m.kegiatanInti)) catatan.push(`KEGIATAN INTI (format lama):\n${String(m.kegiatanInti).trim()}`);
+  if (profilSisa.length) catatan.push(`PROFIL LULUSAN LAMA (tanpa padanan dimensi):\n${profilSisa.join(', ')}`);
+
+  return {
+    ...m,
+    tpId: tp?.id || '',
+    tingkat,
+    fase: faseOfTingkat(tingkat),
+    bidangKeahlian: DEFAULT_BIDANG_KEAHLIAN,
+    programKeahlian: subj?.programKeahlian || '',
+    konsentrasiKeahlian: subj?.konsentrasiKeahlian || '',
+    ...parseAlokasi(m.alokasiWaktu),
+    sistemPenjadwalan: 'Blok',
+    idPesertaDidik: m.kompetensiAwal || '',
+    idMateriPelajaran: m.pemahamanBermakna || '',
+    dimensiProfil: dimensi,
+    capaianPembelajaran: cpTextForTp(tp, analyses, cps),
+    lintasDisiplin: '',
+    tujuanPembelajaran: tp?.rumusan || atp?.tujuanPembelajaran || '',
+    topikPembelajaran: '',
+    praktikPedagogis: m.modelPembelajaran || '',
+    kemitraan: '',
+    lingkunganBudaya: '',
+    lingkunganRuangFisik: '',
+    lingkunganRuangVirtual: '',
+    pemanfaatanDigital: '',
+    awalPrinsip: [],
+    awalKegiatan: [m.pendahuluan, hasText(m.pertanyaanPemantik) ? `Pertanyaan pemantik: ${String(m.pertanyaanPemantik).trim()}` : '']
+      .filter((x) => hasText(x))
+      .join('\n'),
+    memahamiPrinsip: [],
+    memahamiKegiatan: '',
+    mengaplikasiPrinsip: [],
+    mengaplikasiKegiatan: '',
+    merefleksiPrinsip: [],
+    merefleksiKegiatan: '',
+    penutupPrinsip: [],
+    penutupKegiatan: m.penutup || '',
+    asesmenAwal: m.asesmenDiagnostik || '',
+    asesmenProses: m.asesmenFormatif || '',
+    asesmenAkhir: m.asesmenSumatif || '',
+    mediaSumber: m.mediaSumber || '',
+    remedialPengayaan: m.remedialPengayaan || '',
+    catatanMigrasi: catatan.join('\n\n'),
+    schemaVersion: 2,
+  } as TeachingModule;
+};
+
+const migrateTeachingModules = (d: any): any => {
+  const modules: any[] = Array.isArray(d.modules) ? d.modules : [];
+  if (modules.every((m) => m && m.schemaVersion === 2)) return d;
+  return { ...d, modules: modules.map((m) => (m && m.schemaVersion === 2 ? m : upgradeModule(m || {}, d))) };
+};
+
 // Memvalidasi & melengkapi struktur database dari cloud/backup. Mengembalikan null jika tidak valid.
 const normalizeWorkspace = (raw: any): WorkspaceDatabase | null => {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
@@ -922,7 +1147,7 @@ const normalizeWorkspace = (raw: any): WorkspaceDatabase | null => {
   DATA_COLLECTIONS.forEach((k) => {
     if (!Array.isArray(merged[k])) merged[k] = [];
   });
-  return migrateLearningObjectives(merged) as WorkspaceDatabase;
+  return migrateTeachingModules(migrateLearningObjectives(merged)) as WorkspaceDatabase;
 };
 
 const lowerFirst = (s: string): string => (s ? s.charAt(0).toLowerCase() + s.slice(1) : s);
@@ -2063,6 +2288,22 @@ export default function App() {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
+  // Kategori menu sidebar yang sedang dilipat (diingat di browser ini)
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
+    try {
+      const raw = localStorage.getItem(APP_CONFIG.navGroupsKey);
+      const parsed = raw ? JSON.parse(raw) : {};
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  });
+  const toggleGroup = (name: string) => {
+    const next = { ...collapsedGroups, [name]: !collapsedGroups[name] };
+    setCollapsedGroups(next);
+    writeStored(APP_CONFIG.navGroupsKey, JSON.stringify(next));
+  };
+
   // Tutup menu profil saat klik di luar menu atau menekan Escape
   useEffect(() => {
     if (!profileMenuOpen) return;
@@ -2091,7 +2332,7 @@ export default function App() {
     message: '',
     onConfirm: () => {},
   });
-  const [printPreview, setPrintPreview] = useState<{ open: boolean; title: string; content: React.ReactNode }>({
+  const [printPreview, setPrintPreview] = useState<{ open: boolean; title: string; content: React.ReactNode; kop?: boolean }>({
     open: false,
     title: '',
     content: null,
@@ -2582,7 +2823,7 @@ export default function App() {
     {
       group: 'PERANGKAT & PELAKSANAAN',
       items: [
-        { id: 'modul_ajar', label: 'Modul Ajar', icon: <FileText size={18} />, badge: db.modules.length },
+        { id: 'modul_ajar', label: 'Perencanaan Pembelajaran', icon: <FileText size={18} />, badge: db.modules.length },
         { id: 'jobsheet', label: 'Jobsheet & Bahan Ajar TSM', icon: <Wrench size={18} />, badge: db.jobsheets.length },
         { id: 'jurnal', label: 'Jurnal Mengajar', icon: <BookMarked size={18} />, badge: db.journals.length },
         { id: 'presensi', label: 'Presensi & Rekap', icon: <ClipboardCheck size={18} /> },
@@ -2604,6 +2845,16 @@ export default function App() {
       ],
     },
   ];
+
+  // Saat berpindah halaman (mis. lewat tombol alur atau menu avatar), buka kategori yang memuat halaman itu
+  useEffect(() => {
+    const owner = navGroups.find((g) => g.items.some((i) => i.id === activePage));
+    if (owner && collapsedGroups[owner.group]) {
+      const next = { ...collapsedGroups, [owner.group]: false };
+      setCollapsedGroups(next);
+      writeStored(APP_CONFIG.navGroupsKey, JSON.stringify(next));
+    }
+  }, [activePage]);
 
   const alurCounts: AlurCounts = {
     cp: db.cps.length,
@@ -2904,6 +3155,9 @@ export default function App() {
             subjects={db.subjects}
             classes={db.classes}
             atps={db.atps}
+            tps={db.tps}
+            analyses={db.cpAnalyses}
+            cps={db.cps}
             teacher={db.teacher}
             settings={settings}
             dark={dark}
@@ -2914,14 +3168,14 @@ export default function App() {
                   ...p,
                   modules: exists ? p.modules.map((m) => (m.id === mod.id ? mod : m)) : [mod, ...p.modules],
                 };
-              }, 'Modul Ajar berhasil disimpan!')
+              }, 'Perencanaan Pembelajaran berhasil disimpan!')
             }
             onDelete={(id) =>
-              askConfirm('Hapus Modul Ajar?', 'Modul ajar yang dihapus tidak dapat dipulihkan.', () =>
-                updateDatabase((p) => ({ ...p, modules: p.modules.filter((m) => m.id !== id) }), 'Modul ajar dihapus')
+              askConfirm('Hapus Perencanaan Pembelajaran?', 'Perencanaan pembelajaran yang dihapus tidak dapat dipulihkan.', () =>
+                updateDatabase((p) => ({ ...p, modules: p.modules.filter((m) => m.id !== id) }), 'Perencanaan pembelajaran dihapus')
               )
             }
-            onOpenPrint={(title, content) => setPrintPreview({ open: true, title, content })}
+            onOpenPrint={(title, content, opts) => setPrintPreview({ open: true, title, content, kop: opts?.kop })}
           />
         );
       case 'jobsheet':
@@ -3205,14 +3459,26 @@ export default function App() {
 
         <style>{`.mt-hide-scrollbar{scrollbar-width:none;-ms-overflow-style:none}.mt-hide-scrollbar::-webkit-scrollbar{display:none}`}</style>
         <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-5 mt-hide-scrollbar">
-          {navGroups.map((group) => (
+          {navGroups.map((group) => {
+            // Saat sidebar diperkecil (hanya ikon), semua item tetap tampil karena judul kategori disembunyikan
+            const open = sidebarCollapsed || !collapsedGroups[group.group];
+            const panelId = `nav-group-${group.group.replace(/[^A-Za-z]+/g, '-').toLowerCase()}`;
+            return (
             <div key={group.group}>
               {!sidebarCollapsed && (
-                <p className="px-3 mb-1.5 text-[10px] font-bold tracking-wider uppercase text-blue-200/70">
-                  {group.group}
-                </p>
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.group)}
+                  aria-expanded={open}
+                  aria-controls={panelId}
+                  className="w-full flex items-center justify-between px-3 mb-1.5 min-h-[32px] rounded-lg text-[10px] font-bold tracking-wider uppercase text-blue-200/70 hover:text-white hover:bg-white/5 transition-colors"
+                >
+                  <span>{group.group}</span>
+                  <ChevronDown size={14} className={`transition-transform ${open ? '' : '-rotate-90'}`} />
+                </button>
               )}
-              <div className="space-y-1">
+              {open && (
+              <div id={panelId} className="space-y-1">
                 {group.items.map((item) => {
                   const active = activePage === item.id;
                   return (
@@ -3246,19 +3512,13 @@ export default function App() {
                   );
                 })}
               </div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </nav>
 
-        <div className="p-3 border-t border-white/10 flex items-center justify-between gap-2">
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-600 text-rose-100 hover:text-white text-xs font-semibold transition-colors"
-            title="Keluar dari Workspace"
-          >
-            <LogOut size={16} />
-            {!sidebarCollapsed && <span>Keluar</span>}
-          </button>
+        <div className="hidden lg:flex p-3 border-t border-white/10 items-center justify-end gap-2">
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             className="hidden lg:flex p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors ml-auto"
@@ -3510,7 +3770,7 @@ export default function App() {
               </div>
             </div>
             <div className="p-6 sm:p-10 overflow-y-auto bg-white text-slate-900 print:p-0">
-              <KopSuratInstansi teacher={db.teacher} subtitle={printPreview.title} />
+              {printPreview.kop !== false && <KopSuratInstansi teacher={db.teacher} subtitle={printPreview.title} />}
               {printPreview.content}
               <div className="mt-10 grid grid-cols-2 gap-8 text-xs sm:text-sm pt-4 break-inside-avoid">
                 <div>
@@ -3780,7 +4040,7 @@ const DashboardView: React.FC<{
         <StatCard
           label="PERANGKAT AJAR"
           value={stats.perangkatCount}
-          sub={`${db.modules.length} Modul, ${db.jobsheets.length} Jobsheet, ${db.tps.length} TP`}
+          sub={`${db.modules.length} Perencanaan, ${db.jobsheets.length} Jobsheet, ${db.tps.length} TP`}
           icon={<BookOpen size={22} className="text-[#178C8C]" />}
           dark={dark}
           onClick={() => onNavigate('modul_ajar')}
@@ -3809,7 +4069,7 @@ const DashboardView: React.FC<{
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {[
-            { label: 'Buat Modul Ajar', icon: <FileText size={18} />, page: 'modul_ajar' as PageId },
+            { label: 'Buat Perencanaan Pembelajaran', icon: <FileText size={18} />, page: 'modul_ajar' as PageId },
             { label: 'Buat Jobsheet TSM', icon: <Wrench size={18} />, page: 'jobsheet' as PageId },
             { label: 'Tambah Jurnal', icon: <BookMarked size={18} />, page: 'jurnal' as PageId },
             { label: 'Input Presensi', icon: <ClipboardCheck size={18} />, page: 'presensi' as PageId },
@@ -6447,179 +6707,682 @@ const PromesView: React.FC<{
   );
 };
 
-// --- 11. MODUL AJAR / RENCANA PEMBELAJARAN ---
+// --- 11. PERENCANAAN PEMBELAJARAN MENDALAM (dahulu "Modul Ajar") ---
+const PlanSection: React.FC<{
+  number: number | string;
+  title: string;
+  note?: string;
+  dark: boolean;
+  children: React.ReactNode;
+}> = ({ number, title, note, dark, children }) => (
+  <details open className={`rounded-2xl border ${dark ? 'border-slate-700' : 'border-slate-200'}`}>
+    <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between gap-3 min-h-[48px]">
+      <span className="flex items-center gap-2.5 font-bold text-sm">
+        <span className="w-6 h-6 rounded-full bg-[#173B70] text-white text-xs flex items-center justify-center shrink-0">
+          {number}
+        </span>
+        {title}
+      </span>
+      {note && <span className="text-[11px] font-semibold text-slate-500">{note}</span>}
+    </summary>
+    <div className="px-4 pb-4 pt-1 space-y-4">{children}</div>
+  </details>
+);
+
+const PlanField: React.FC<{
+  label: string;
+  htmlFor?: string;
+  required?: boolean;
+  optional?: boolean;
+  hint?: string;
+  children: React.ReactNode;
+}> = ({ label, htmlFor, required, optional, hint, children }) => (
+  <div>
+    <div className="flex flex-wrap items-center gap-2 mb-1">
+      {htmlFor ? (
+        <label htmlFor={htmlFor} className="text-xs font-semibold">
+          {label}
+        </label>
+      ) : (
+        <span className="text-xs font-semibold">{label}</span>
+      )}
+      {required && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">Wajib</span>}
+      {optional && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">Opsional</span>}
+    </div>
+    {children}
+    {hint && <p className="text-[11px] text-slate-400 mt-1">{hint}</p>}
+  </div>
+);
+
+const addPhrase = (current: string, phrase: string): string => {
+  const c = current || '';
+  if (c.toLowerCase().includes(phrase.toLowerCase())) return c;
+  return c.trim() ? `${c.replace(/[\s,]+$/, '')}, ${phrase}` : phrase;
+};
+
+const SuggestChips: React.FC<{ options: string[]; onPick: (o: string) => void; dark: boolean }> = ({ options, onPick, dark }) => (
+  <div className="flex flex-wrap gap-1.5 mt-1.5">
+    {options.map((o) => (
+      <button
+        type="button"
+        key={o}
+        onClick={() => onPick(o)}
+        className={`text-[11px] px-2 py-1 rounded-lg border min-h-[28px] ${
+          dark ? 'border-slate-700 hover:bg-slate-800' : 'border-slate-300 hover:bg-slate-50'
+        }`}
+      >
+        + {o}
+      </button>
+    ))}
+  </div>
+);
+
+const PrinsipChips: React.FC<{ value: string[]; onChange: (v: string[]) => void; dark: boolean }> = ({ value, onChange, dark }) => (
+  <div className="flex flex-wrap items-center gap-1.5 mb-1.5" role="group" aria-label="Prinsip pembelajaran yang digunakan">
+    <span className="text-[11px] text-slate-500">Prinsip:</span>
+    {PRINSIP_PM.map((p) => {
+      const on = (value || []).includes(p);
+      return (
+        <button
+          type="button"
+          key={p}
+          aria-pressed={on}
+          onClick={() => onChange(on ? value.filter((x) => x !== p) : [...(value || []), p])}
+          className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold min-h-[28px] ${
+            on
+              ? 'bg-[#178C8C] border-[#178C8C] text-white'
+              : dark
+              ? 'border-slate-700 text-slate-300'
+              : 'border-slate-300 text-slate-600'
+          }`}
+        >
+          {p}
+        </button>
+      );
+    })}
+  </div>
+);
+
+const PlanPrint: React.FC<{ m: TeachingModule; subject?: Subject; teacher: TeacherProfile }> = ({ m, subject, teacher }) => {
+  const idRows: [string, string][] = [
+    ['Bidang Keahlian', m.bidangKeahlian],
+    ['Program Keahlian', m.programKeahlian],
+    ['Konsentrasi Keahlian', m.konsentrasiKeahlian],
+    ['Mata Pelajaran', subject?.namaMapel || '-'],
+    ['Fase / Kelas', `${m.fase} / ${m.tingkat}`],
+    ['Semester', semesterLabel(m.semester)],
+    ['Jam Pelajaran', jamPelajaranText(m)],
+    ['Sistem Penjadwalan', m.sistemPenjadwalan],
+  ];
+  const prinsipText = (p: string[]) => (p && p.length ? ` (${p.join(', ')})` : '');
+  const groups: { title: string; rows: { label: string; value: React.ReactNode; show: boolean }[] }[] = [
+    {
+      title: 'Identifikasi',
+      rows: [
+        { label: 'Peserta Didik', value: m.idPesertaDidik, show: hasText(m.idPesertaDidik) },
+        { label: 'Materi Pelajaran', value: m.idMateriPelajaran, show: hasText(m.idMateriPelajaran) },
+        { label: 'Dimensi Profil Lulusan', value: (m.dimensiProfil || []).join(', ') || '-', show: true },
+      ],
+    },
+    {
+      title: 'Desain Pembelajaran',
+      rows: [
+        { label: 'Capaian Pembelajaran', value: m.capaianPembelajaran, show: hasText(m.capaianPembelajaran) },
+        { label: 'Lintas Disiplin Ilmu', value: m.lintasDisiplin, show: hasText(m.lintasDisiplin) },
+        { label: 'Tujuan Pembelajaran', value: m.tujuanPembelajaran || '-', show: true },
+        { label: 'Topik Pembelajaran', value: m.topikPembelajaran, show: hasText(m.topikPembelajaran) },
+        { label: 'Praktik Pedagogis', value: m.praktikPedagogis || '-', show: true },
+        { label: 'Kemitraan Pembelajaran', value: m.kemitraan, show: hasText(m.kemitraan) },
+        {
+          label: 'Lingkungan Pembelajaran',
+          value: (
+            <>
+              {hasText(m.lingkunganBudaya) && <p>Budaya belajar: {m.lingkunganBudaya}</p>}
+              {hasText(m.lingkunganRuangFisik) && <p>Ruang fisik: {m.lingkunganRuangFisik}</p>}
+              {hasText(m.lingkunganRuangVirtual) && <p>Ruang virtual: {m.lingkunganRuangVirtual}</p>}
+              {!hasText(m.lingkunganBudaya) && !hasText(m.lingkunganRuangFisik) && !hasText(m.lingkunganRuangVirtual) && '-'}
+            </>
+          ),
+          show: true,
+        },
+        { label: 'Pemanfaatan Digital', value: m.pemanfaatanDigital, show: hasText(m.pemanfaatanDigital) },
+      ],
+    },
+    {
+      title: 'Pengalaman Belajar',
+      rows: [
+        { label: `Awal${prinsipText(m.awalPrinsip)}`, value: m.awalKegiatan, show: hasText(m.awalKegiatan) },
+        { label: `Inti: Memahami${prinsipText(m.memahamiPrinsip)}`, value: m.memahamiKegiatan || '-', show: true },
+        { label: `Inti: Mengaplikasi${prinsipText(m.mengaplikasiPrinsip)}`, value: m.mengaplikasiKegiatan || '-', show: true },
+        { label: `Inti: Merefleksi${prinsipText(m.merefleksiPrinsip)}`, value: m.merefleksiKegiatan || '-', show: true },
+        { label: `Penutup${prinsipText(m.penutupPrinsip)}`, value: m.penutupKegiatan, show: hasText(m.penutupKegiatan) },
+      ],
+    },
+    {
+      title: 'Asesmen',
+      rows: [
+        { label: 'Asesmen pada Awal Pembelajaran', value: m.asesmenAwal || '-', show: true },
+        { label: 'Asesmen pada Proses Pembelajaran', value: m.asesmenProses || '-', show: true },
+        { label: 'Asesmen pada Akhir Pembelajaran', value: m.asesmenAkhir || '-', show: true },
+      ],
+    },
+  ];
+  const extras = [
+    { label: 'Media, Alat, dan Bahan', value: m.mediaSumber },
+    { label: 'Remedial dan Pengayaan', value: m.remedialPengayaan },
+  ].filter((x) => hasText(x.value));
+
+  return (
+    <div className="text-slate-900 text-[11px] sm:text-xs leading-relaxed space-y-4">
+      <div className="text-center font-bold uppercase leading-snug text-sm">
+        <p>Perencanaan Pembelajaran Mendalam</p>
+        <p>{schoolShortName(teacher)}</p>
+      </div>
+      <table className="text-[11px] sm:text-xs">
+        <tbody>
+          {idRows.map(([k, v]) => (
+            <tr key={k}>
+              <td className="pr-4 py-0.5 align-top whitespace-nowrap">{k}</td>
+              <td className="pr-2 py-0.5 align-top">:</td>
+              <td className="py-0.5 align-top">{v}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <table className="w-full border-collapse border border-slate-800">
+        <tbody>
+          {groups.map((g) => {
+            const rows = g.rows.filter((r) => r.show);
+            return rows.map((r, i) => (
+              <tr key={`${g.title}-${r.label}`} className="align-top">
+                {i === 0 && (
+                  <td rowSpan={rows.length} className="border border-slate-800 p-2 font-bold text-center align-middle bg-slate-100 w-24">
+                    {g.title}
+                  </td>
+                )}
+                <td className="border border-slate-800 p-2 font-semibold w-40">{r.label}</td>
+                <td className="border border-slate-800 p-2 whitespace-pre-line">{r.value}</td>
+              </tr>
+            ));
+          })}
+          {extras.map((x, i) => (
+            <tr key={x.label} className="align-top">
+              {i === 0 && (
+                <td rowSpan={extras.length} className="border border-slate-800 p-2 font-bold text-center align-middle bg-slate-100 w-24">
+                  Tambahan
+                </td>
+              )}
+              <td className="border border-slate-800 p-2 font-semibold w-40">{x.label}</td>
+              <td className="border border-slate-800 p-2 whitespace-pre-line">{x.value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
 const TeachingModuleView: React.FC<{
   modules: TeachingModule[];
   subjects: Subject[];
   classes: SchoolClass[];
   atps: ATPItem[];
+  tps: LearningObjective[];
+  analyses: CPAnalysis[];
+  cps: LearningOutcome[];
   teacher: TeacherProfile;
   settings: AppSettings;
   dark: boolean;
   onSave: (m: TeachingModule) => void;
   onDelete: (id: string) => void;
-  onOpenPrint: (title: string, content: React.ReactNode) => void;
-}> = ({ modules, subjects, classes, atps, settings, dark, onSave, onDelete, onOpenPrint }) => {
+  onOpenPrint: (title: string, content: React.ReactNode, opts?: { kop?: boolean }) => void;
+}> = ({ modules, subjects, classes, atps, tps, analyses, cps, teacher, settings, dark, onSave, onDelete, onOpenPrint }) => {
   const [editing, setEditing] = useState<TeachingModule | null>(null);
+  const [formError, setFormError] = useState('');
+
+  const set = (patch: Partial<TeachingModule>) => setEditing((prev) => (prev ? { ...prev, ...patch } : prev));
 
   const startNew = () => {
+    const s = subjects[0];
+    const tingkat = (s?.tingkat || 'X') as 'X' | 'XI' | 'XII';
+    setFormError('');
     setEditing({
       id: uid('mod'),
       judulModul: '',
-      subjectId: subjects[0]?.id || '',
+      subjectId: s?.id || '',
       classId: classes[0]?.id || '',
-      atpId: atps[0]?.id || '',
-      fase: 'F',
+      atpId: '',
+      tpId: '',
+      fase: faseOfTingkat(tingkat),
+      tingkat,
       semester: settings.semester,
       tahunAjaran: settings.tahunAjaran,
-      alokasiWaktu: '3 Pertemuan (18 JP x 45 Menit)',
-      kompetensiAwal: '',
-      profilLulusan: 'Penalaran Kritis, Kemandirian, Kolaborasi',
-      pemahamanBermakna: '',
-      pertanyaanPemantik: '',
-      modelPembelajaran: 'Teaching Factory (TeFa) / Project Based Learning',
-      mediaSumber: 'Unit Sepeda Motor, Buku Pedoman Reparasi (BPR), SST',
-      pendahuluan: '',
-      kegiatanInti: '',
-      penutup: '',
-      asesmenDiagnostik: '',
-      asesmenFormatif: '',
-      asesmenSumatif: '',
+      alokasiWaktu: '4 Pertemuan (16 JP x 45 Menit)',
+      bidangKeahlian: modules[0]?.bidangKeahlian || DEFAULT_BIDANG_KEAHLIAN,
+      programKeahlian: s?.programKeahlian || '',
+      konsentrasiKeahlian: s?.konsentrasiKeahlian || '',
+      jpPerPertemuan: 4,
+      menitPerJp: 45,
+      jumlahPertemuan: 4,
+      sistemPenjadwalan: modules[0]?.sistemPenjadwalan || 'Blok',
+      idPesertaDidik: '',
+      idMateriPelajaran: '',
+      dimensiProfil: [],
+      capaianPembelajaran: '',
+      lintasDisiplin: '',
+      tujuanPembelajaran: '',
+      topikPembelajaran: '',
+      praktikPedagogis: '',
+      kemitraan: '',
+      lingkunganBudaya: '',
+      lingkunganRuangFisik: '',
+      lingkunganRuangVirtual: '',
+      pemanfaatanDigital: '',
+      awalPrinsip: [],
+      awalKegiatan: '',
+      memahamiPrinsip: [],
+      memahamiKegiatan: '',
+      mengaplikasiPrinsip: [],
+      mengaplikasiKegiatan: '',
+      merefleksiPrinsip: [],
+      merefleksiKegiatan: '',
+      penutupPrinsip: [],
+      penutupKegiatan: '',
+      asesmenAwal: '',
+      asesmenProses: '',
+      asesmenAkhir: '',
+      mediaSumber: '',
       remedialPengayaan: '',
-      status: 'Final',
+      catatanMigrasi: '',
+      schemaVersion: 2,
+      status: 'Draft',
       updatedAt: todayISO(),
     });
   };
 
-  const inputCls = `w-full px-3.5 py-2.5 rounded-xl border text-sm ${
+  const inputCls = `w-full px-3.5 py-2.5 rounded-xl border text-sm min-h-[44px] ${
     dark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
   }`;
+  const cardCls = `rounded-2xl border ${dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'}`;
+
+  const applySubject = (id: string) => {
+    const s = subjects.find((x) => x.id === id);
+    if (!s) return;
+    set({
+      subjectId: id,
+      tingkat: s.tingkat,
+      fase: faseOfTingkat(s.tingkat),
+      programKeahlian: s.programKeahlian,
+      konsentrasiKeahlian: s.konsentrasiKeahlian,
+      tpId: '',
+      atpId: '',
+    });
+  };
+
+  const applyTp = (id: string) => {
+    const tp = tps.find((x) => x.id === id);
+    if (!tp) {
+      set({ tpId: '', atpId: '' });
+      return;
+    }
+    const atp = atps.find((a) => a.tpId === tp.id);
+    set({
+      tpId: tp.id,
+      atpId: atp?.id || '',
+      tingkat: tp.tingkat,
+      fase: faseOfTingkat(tp.tingkat),
+      tujuanPembelajaran: tp.rumusan,
+      capaianPembelajaran: cpTextForTp(tp, analyses, cps),
+    });
+  };
 
   if (editing) {
+    const checklist = planChecklist(editing);
+    const missing = checklist.filter((c) => !c.ok);
+    const done = checklist.length - missing.length;
+    const subjectTps = tps.filter((x) => x.subjectId === editing.subjectId).sort(compareTp);
+    const ta = (v: string) => `${inputCls} min-h-[88px]`;
+
+    const handleSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      setFormError('');
+      if (!hasText(editing.judulModul)) {
+        setFormError('Judul perencanaan wajib diisi.');
+        return;
+      }
+      if (editing.status === 'Final' && missing.length > 0) {
+        setFormError(`Status Final memerlukan semua butir wajib terisi. Belum lengkap: ${missing.map((x) => x.label).join('; ')}.`);
+        return;
+      }
+      onSave({
+        ...editing,
+        fase: faseOfTingkat(editing.tingkat),
+        alokasiWaktu: alokasiRingkas(editing),
+        schemaVersion: 2,
+        updatedAt: todayISO(),
+      });
+      setEditing(null);
+    };
+
     return (
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSave({ ...editing, updatedAt: todayISO() });
-          setEditing(null);
-        }}
-        className={`p-6 rounded-2xl border space-y-4 ${dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'}`}
-      >
-        <div className="flex items-center justify-between border-b pb-3 border-slate-200 dark:border-slate-800">
-          <h3 className="font-bold text-lg">Editor Modul Ajar Kurikulum Merdeka SMK</h3>
-          <button type="button" onClick={() => setEditing(null)} className="text-xs px-3 py-1.5 rounded-lg border">
+      <form onSubmit={handleSubmit} className={`${cardCls} p-5 sm:p-6 space-y-4`} aria-label="Formulir Perencanaan Pembelajaran Mendalam">
+        <div className="flex items-center justify-between border-b pb-3 border-slate-200 dark:border-slate-800 gap-3">
+          <div>
+            <h3 className="font-bold text-lg">Perencanaan Pembelajaran Mendalam</h3>
+            <p className="text-xs text-slate-500">Mengikuti kerangka Panduan Pembelajaran Mendalam: Identifikasi, Desain Pembelajaran, Pengalaman Belajar, Asesmen.</p>
+          </div>
+          <button type="button" onClick={() => setEditing(null)} className="text-xs px-3 py-1.5 rounded-lg border min-h-[36px]">
             Kembali
           </button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="md:col-span-2">
-            <label className="block text-xs font-semibold mb-1">Judul Modul Ajar *</label>
-            <input required className={inputCls} value={editing.judulModul} onChange={(e) => setEditing({ ...editing, judulModul: e.target.value })} placeholder="Contoh: Modul Ajar Perawatan Sistem Injeksi PGM-FI" />
+
+        {hasText(editing.catatanMigrasi) && (
+          <div className="p-4 rounded-xl border border-amber-500/40 bg-amber-500/10 text-xs space-y-2" role="note">
+            <p className="font-bold text-amber-800 dark:text-amber-200">
+              Catatan dari format Modul Ajar lama (tidak ikut tercetak)
+            </p>
+            <p className="text-slate-600 dark:text-slate-300">
+              Bagian ini tidak punya padanan otomatis. Salin ke kolom yang sesuai di bawah (mis. kegiatan inti ke Memahami, Mengaplikasi, dan Merefleksi), lalu hapus catatan ini.
+            </p>
+            <pre className="whitespace-pre-wrap font-sans text-xs p-3 rounded-lg bg-white/60 dark:bg-slate-900/60 border border-amber-500/30">{editing.catatanMigrasi}</pre>
+            <button type="button" onClick={() => set({ catatanMigrasi: '' })} className="px-3 py-1.5 rounded-lg border border-amber-600 text-amber-800 dark:text-amber-200 font-semibold min-h-[36px]">
+              Hapus catatan ini
+            </button>
           </div>
-          <div>
-            <label className="block text-xs font-semibold mb-1">Mata Pelajaran</label>
-            <select className={inputCls} value={editing.subjectId} onChange={(e) => setEditing({ ...editing, subjectId: e.target.value })}>
-              {subjects.map((s) => <option key={s.id} value={s.id}>{s.namaMapel}</option>)}
+        )}
+
+        <PlanSection number="•" title="Identitas" dark={dark}>
+          <PlanField label="Judul Perencanaan" htmlFor="pl-judul" required>
+            <input id="pl-judul" className={inputCls} value={editing.judulModul} onChange={(e) => set({ judulModul: e.target.value })} placeholder="Contoh: Penyetelan Celah Katup dan Pemeriksaan Tekanan Kompresi" />
+          </PlanField>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <PlanField label="Bidang Keahlian" htmlFor="pl-bidang">
+              <input id="pl-bidang" className={inputCls} value={editing.bidangKeahlian} onChange={(e) => set({ bidangKeahlian: e.target.value })} />
+            </PlanField>
+            <PlanField label="Program Keahlian" htmlFor="pl-program">
+              <input id="pl-program" className={inputCls} value={editing.programKeahlian} onChange={(e) => set({ programKeahlian: e.target.value })} />
+            </PlanField>
+            <PlanField label="Konsentrasi Keahlian" htmlFor="pl-konsentrasi">
+              <input id="pl-konsentrasi" className={inputCls} value={editing.konsentrasiKeahlian} onChange={(e) => set({ konsentrasiKeahlian: e.target.value })} />
+            </PlanField>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-1">
+              <PlanField label="Mata Pelajaran" htmlFor="pl-mapel">
+                <select id="pl-mapel" className={inputCls} value={editing.subjectId} onChange={(e) => applySubject(e.target.value)}>
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>{s.namaMapel}</option>
+                  ))}
+                </select>
+              </PlanField>
+            </div>
+            <PlanField label="Kelas (Fase ditentukan otomatis)" htmlFor="pl-kelas">
+              <select id="pl-kelas" className={inputCls} value={editing.tingkat} onChange={(e) => set({ tingkat: e.target.value as 'X' | 'XI' | 'XII', fase: faseOfTingkat(e.target.value as 'X' | 'XI' | 'XII') })}>
+                <option value="X">Kelas X (Fase E)</option>
+                <option value="XI">Kelas XI (Fase F)</option>
+                <option value="XII">Kelas XII (Fase F)</option>
+              </select>
+            </PlanField>
+            <PlanField label="Semester" htmlFor="pl-semester">
+              <select id="pl-semester" className={inputCls} value={editing.semester} onChange={(e) => set({ semester: e.target.value as 'Ganjil' | 'Genap' })}>
+                <option value="Ganjil">1 (Satu)</option>
+                <option value="Genap">2 (Dua)</option>
+              </select>
+            </PlanField>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <PlanField label="JP per pertemuan" htmlFor="pl-jp">
+              <input id="pl-jp" type="number" min={1} className={inputCls} value={editing.jpPerPertemuan} onChange={(e) => set({ jpPerPertemuan: Math.max(1, Number(e.target.value) || 1) })} />
+            </PlanField>
+            <PlanField label="Menit per JP" htmlFor="pl-menit">
+              <input id="pl-menit" type="number" min={1} className={inputCls} value={editing.menitPerJp} onChange={(e) => set({ menitPerJp: Math.max(1, Number(e.target.value) || 1) })} />
+            </PlanField>
+            <PlanField label="Jumlah pertemuan" htmlFor="pl-pertemuan">
+              <input id="pl-pertemuan" type="number" min={1} className={inputCls} value={editing.jumlahPertemuan} onChange={(e) => set({ jumlahPertemuan: Math.max(1, Number(e.target.value) || 1) })} />
+            </PlanField>
+            <PlanField label="Sistem Penjadwalan" htmlFor="pl-sistem">
+              <select id="pl-sistem" className={inputCls} value={editing.sistemPenjadwalan} onChange={(e) => set({ sistemPenjadwalan: e.target.value })}>
+                {SISTEM_PENJADWALAN.map((x) => (
+                  <option key={x} value={x}>{x}</option>
+                ))}
+              </select>
+            </PlanField>
+          </div>
+          <p className="text-xs text-slate-500">
+            Tertulis di dokumen: <strong>Jam Pelajaran: {jamPelajaranText(editing)}</strong> (total {editing.jpPerPertemuan * editing.jumlahPertemuan} JP) • Fase / Kelas: {faseOfTingkat(editing.tingkat)} / {editing.tingkat} • Semester: {semesterLabel(editing.semester)}
+          </p>
+        </PlanSection>
+
+        <PlanSection number={1} title="Identifikasi" note="Dimensi profil lulusan wajib" dark={dark}>
+          <PlanField label="Peserta Didik" htmlFor="pl-peserta" optional hint="Kesiapan sebelum belajar: pengetahuan awal, minat, latar belakang, dan kebutuhan belajar.">
+            <textarea id="pl-peserta" className={ta(editing.idPesertaDidik)} value={editing.idPesertaDidik} onChange={(e) => set({ idPesertaDidik: e.target.value })} />
+          </PlanField>
+          <PlanField label="Materi Pelajaran" htmlFor="pl-materi" optional hint="Jenis pengetahuan yang dicapai, relevansi dengan kehidupan nyata, tingkat kesulitan, struktur materi, dan integrasi nilai dan karakter.">
+            <textarea id="pl-materi" className={ta(editing.idMateriPelajaran)} value={editing.idMateriPelajaran} onChange={(e) => set({ idMateriPelajaran: e.target.value })} />
+          </PlanField>
+          <div role="group" aria-labelledby="pl-dimensi-label">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span id="pl-dimensi-label" className="text-xs font-semibold">Dimensi Profil Lulusan</span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">Wajib</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+              {DIMENSI_PROFIL.map((dim) => {
+                const on = editing.dimensiProfil.includes(dim);
+                return (
+                  <label
+                    key={dim}
+                    className={`flex items-start gap-2 p-2.5 rounded-xl border text-xs cursor-pointer min-h-[44px] ${
+                      on ? 'border-[#178C8C] bg-[#178C8C]/10' : dark ? 'border-slate-700' : 'border-slate-200'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 w-4 h-4"
+                      checked={on}
+                      onChange={() => set({ dimensiProfil: on ? editing.dimensiProfil.filter((x) => x !== dim) : [...editing.dimensiProfil, dim] })}
+                    />
+                    <span>{dim}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Pilih dimensi yang menjadi fokus pencapaian dalam pembelajaran ini.</p>
+          </div>
+        </PlanSection>
+
+        <PlanSection number={2} title="Desain Pembelajaran" note="Tujuan, praktik pedagogis, lingkungan wajib" dark={dark}>
+          <PlanField label="Ambil dari Tujuan Pembelajaran (TP)" htmlFor="pl-tp" optional hint="Memilih TP mengisi otomatis tujuan pembelajaran dan capaian pembelajaran (tetap dapat Anda sunting).">
+            <select id="pl-tp" className={inputCls} value={editing.tpId} onChange={(e) => applyTp(e.target.value)}>
+              <option value="">— Tidak dipilih —</option>
+              {subjectTps.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.kodeTp} — {x.rumusan.length > 80 ? `${x.rumusan.slice(0, 80)}…` : x.rumusan}
+                </option>
+              ))}
             </select>
+          </PlanField>
+          <PlanField label="Capaian Pembelajaran" htmlFor="pl-cp" optional hint="Capaian pembelajaran sesuai fase.">
+            <textarea id="pl-cp" className={ta(editing.capaianPembelajaran)} value={editing.capaianPembelajaran} onChange={(e) => set({ capaianPembelajaran: e.target.value })} />
+          </PlanField>
+          <PlanField label="Lintas Disiplin Ilmu" htmlFor="pl-lintas" optional hint="Disiplin ilmu dan/atau mata pelajaran lain yang relevan.">
+            <input id="pl-lintas" className={inputCls} value={editing.lintasDisiplin} onChange={(e) => set({ lintasDisiplin: e.target.value })} />
+          </PlanField>
+          <PlanField label="Tujuan Pembelajaran" htmlFor="pl-tujuan" required hint="Mencakup kompetensi dan konten pada lingkup materi, memakai kata kerja operasional yang relevan.">
+            <textarea id="pl-tujuan" className={ta(editing.tujuanPembelajaran)} value={editing.tujuanPembelajaran} onChange={(e) => set({ tujuanPembelajaran: e.target.value })} />
+          </PlanField>
+          <PlanField label="Topik Pembelajaran" htmlFor="pl-topik" optional hint="Topik yang relevan dengan capaian dan tujuan pembelajaran.">
+            <input id="pl-topik" className={inputCls} value={editing.topikPembelajaran} onChange={(e) => set({ topikPembelajaran: e.target.value })} />
+          </PlanField>
+          <PlanField label="Praktik Pedagogis" htmlFor="pl-pedagogis" required hint="Model, strategi, atau metode yang dipilih untuk mencapai tujuan belajar.">
+            <textarea id="pl-pedagogis" className={ta(editing.praktikPedagogis)} value={editing.praktikPedagogis} onChange={(e) => set({ praktikPedagogis: e.target.value })} />
+            <SuggestChips dark={dark} onPick={(o) => set({ praktikPedagogis: addPhrase(editing.praktikPedagogis, o) })} options={['Pembelajaran Berbasis Proyek', 'Pembelajaran Berbasis Masalah', 'Pembelajaran Inkuiri', 'Pembelajaran Kolaboratif', 'Pembelajaran Kontekstual', 'Pembelajaran Berdiferensiasi', 'Teaching Factory', 'Demonstrasi dan praktik terbimbing']} />
+          </PlanField>
+          <PlanField label="Kemitraan Pembelajaran" htmlFor="pl-kemitraan" optional hint="Kolaborasi di dalam dan/atau luar sekolah.">
+            <textarea id="pl-kemitraan" className={ta(editing.kemitraan)} value={editing.kemitraan} onChange={(e) => set({ kemitraan: e.target.value })} />
+            <SuggestChips dark={dark} onPick={(o) => set({ kemitraan: addPhrase(editing.kemitraan, o) })} options={['Dunia usaha dan dunia industri (DUDI)', 'Instruktur bengkel/dealer', 'Guru lintas mata pelajaran', 'MGMP', 'Orang tua', 'Komunitas otomotif']} />
+          </PlanField>
+          <div role="group" aria-labelledby="pl-ling-label" className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span id="pl-ling-label" className="text-xs font-semibold">Lingkungan Pembelajaran</span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">Wajib</span>
+              <span className="text-[11px] text-slate-400">minimal salah satu terisi; ruang virtual bersifat opsional</span>
+            </div>
+            <PlanField label="Budaya belajar" htmlFor="pl-ling-budaya" hint="Iklim belajar yang aman, nyaman, dan saling memuliakan.">
+              <input id="pl-ling-budaya" className={inputCls} value={editing.lingkunganBudaya} onChange={(e) => set({ lingkunganBudaya: e.target.value })} />
+            </PlanField>
+            <PlanField label="Ruang fisik" htmlFor="pl-ling-fisik">
+              <input id="pl-ling-fisik" className={inputCls} value={editing.lingkunganRuangFisik} onChange={(e) => set({ lingkunganRuangFisik: e.target.value })} placeholder="mis. bengkel TSM, ruang kelas, laboratorium" />
+            </PlanField>
+            <PlanField label="Ruang virtual" htmlFor="pl-ling-virtual" optional>
+              <input id="pl-ling-virtual" className={inputCls} value={editing.lingkunganRuangVirtual} onChange={(e) => set({ lingkunganRuangVirtual: e.target.value })} placeholder="mis. LMS, forum diskusi daring" />
+            </PlanField>
+          </div>
+          <PlanField label="Pemanfaatan Digital" htmlFor="pl-digital" optional hint="Teknologi untuk pembelajaran yang interaktif, kolaboratif, dan kontekstual.">
+            <textarea id="pl-digital" className={ta(editing.pemanfaatanDigital)} value={editing.pemanfaatanDigital} onChange={(e) => set({ pemanfaatanDigital: e.target.value })} />
+            <SuggestChips dark={dark} onPick={(o) => set({ pemanfaatanDigital: addPhrase(editing.pemanfaatanDigital, o) })} options={['Video pembelajaran', 'Platform pembelajaran (LMS)', 'Perpustakaan digital', 'Forum diskusi daring', 'Aplikasi penilaian', 'Simulasi dan animasi']} />
+          </PlanField>
+        </PlanSection>
+
+        <PlanSection number={3} title="Pengalaman Belajar" note="Memahami, Mengaplikasi, Merefleksi wajib" dark={dark}>
+          <div>
+            <p className="text-xs font-bold mb-1">Awal <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 ml-1">Opsional</span></p>
+            <PrinsipChips dark={dark} value={editing.awalPrinsip} onChange={(v) => set({ awalPrinsip: v })} />
+            <textarea aria-label="Kegiatan awal" className={ta(editing.awalKegiatan)} value={editing.awalKegiatan} onChange={(e) => set({ awalKegiatan: e.target.value })} placeholder="Orientasi yang bermakna, apersepsi kontekstual, motivasi yang menggembirakan (termasuk pertanyaan pemantik, safety briefing, dan APD)." />
+          </div>
+          <div className="space-y-4 p-3.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
+            <p className="text-xs font-bold">Inti <span className="font-normal text-slate-500">(tidak harus selesai dalam satu pertemuan)</span></p>
+            <div>
+              <p className="text-xs font-semibold mb-1">Memahami <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 ml-1">Wajib</span></p>
+              <PrinsipChips dark={dark} value={editing.memahamiPrinsip} onChange={(v) => set({ memahamiPrinsip: v })} />
+              <textarea aria-label="Kegiatan memahami" className={`${ta(editing.memahamiKegiatan)} min-h-[110px]`} value={editing.memahamiKegiatan} onChange={(e) => set({ memahamiKegiatan: e.target.value })} placeholder="Kegiatan agar peserta didik aktif mengonstruksi pengetahuan (esensial, aplikatif, nilai dan karakter) dari berbagai sumber dan konteks." />
+            </div>
+            <div>
+              <p className="text-xs font-semibold mb-1">Mengaplikasi <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 ml-1">Wajib</span></p>
+              <PrinsipChips dark={dark} value={editing.mengaplikasiPrinsip} onChange={(v) => set({ mengaplikasiPrinsip: v })} />
+              <textarea aria-label="Kegiatan mengaplikasi" className={`${ta(editing.mengaplikasiKegiatan)} min-h-[110px]`} value={editing.mengaplikasiKegiatan} onChange={(e) => set({ mengaplikasiKegiatan: e.target.value })} placeholder="Kegiatan mengaplikasi pemahaman secara kontekstual atau kehidupan nyata (praktik bengkel, proyek, kerja sama tim)." />
+            </div>
+            <div>
+              <p className="text-xs font-semibold mb-1">Merefleksi <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 ml-1">Wajib</span></p>
+              <PrinsipChips dark={dark} value={editing.merefleksiPrinsip} onChange={(v) => set({ merefleksiPrinsip: v })} />
+              <textarea aria-label="Kegiatan merefleksi" className={`${ta(editing.merefleksiKegiatan)} min-h-[110px]`} value={editing.merefleksiKegiatan} onChange={(e) => set({ merefleksiKegiatan: e.target.value })} placeholder="Kegiatan mengevaluasi dan memaknai proses dan hasil praktik, menentukan tindak lanjut, serta mengelola proses belajar secara mandiri (regulasi diri)." />
+            </div>
           </div>
           <div>
-            <label className="block text-xs font-semibold mb-1">Alokasi Waktu</label>
-            <input className={inputCls} value={editing.alokasiWaktu} onChange={(e) => setEditing({ ...editing, alokasiWaktu: e.target.value })} />
+            <p className="text-xs font-bold mb-1">Penutup <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 ml-1">Opsional</span></p>
+            <PrinsipChips dark={dark} value={editing.penutupPrinsip} onChange={(v) => set({ penutupPrinsip: v })} />
+            <textarea aria-label="Kegiatan penutup" className={ta(editing.penutupKegiatan)} value={editing.penutupKegiatan} onChange={(e) => set({ penutupKegiatan: e.target.value })} placeholder="Umpan balik konstruktif, menyimpulkan pembelajaran, merencanakan pembelajaran berikutnya bersama peserta didik (termasuk penerapan 5R)." />
           </div>
-          <div>
-            <label className="block text-xs font-semibold mb-1">Model Pembelajaran</label>
-            <input className={inputCls} value={editing.modelPembelajaran} onChange={(e) => setEditing({ ...editing, modelPembelajaran: e.target.value })} />
+        </PlanSection>
+
+        <PlanSection number={4} title="Asesmen" note="Awal, proses, dan akhir wajib" dark={dark}>
+          <p className="text-[11px] text-slate-500">
+            Tuliskan teknik dan instrumen penilaian. Asesmen dalam Pembelajaran Mendalam mencakup asesmen sebagai pembelajaran (penilaian diri dan sejawat), untuk pembelajaran (umpan balik), dan hasil pembelajaran (capaian dan tindak lanjut).
+          </p>
+          {([
+            ['pl-as-awal', 'Asesmen pada Awal Pembelajaran', 'asesmenAwal', ['Pertanyaan diagnostik', 'Kuis singkat pengetahuan awal']],
+            ['pl-as-proses', 'Asesmen pada Proses Pembelajaran', 'asesmenProses', ['Observasi', 'Penilaian kinerja', 'Penilaian sejawat', 'Penilaian diri', 'Umpan balik formatif']],
+            ['pl-as-akhir', 'Asesmen pada Akhir Pembelajaran', 'asesmenAkhir', ['Uji kinerja', 'Penilaian proyek', 'Penilaian produk', 'Portofolio', 'Jurnal refleksi', 'Tes tertulis', 'Tes lisan']],
+          ] as [string, string, 'asesmenAwal' | 'asesmenProses' | 'asesmenAkhir', string[]][]).map(([id, label, key, opts]) => (
+            <PlanField key={id} label={label} htmlFor={id} required>
+              <textarea id={id} className={ta(editing[key])} value={editing[key]} onChange={(e) => set({ [key]: e.target.value } as Partial<TeachingModule>)} />
+              <SuggestChips dark={dark} onPick={(o) => set({ [key]: addPhrase(editing[key], o) } as Partial<TeachingModule>)} options={opts} />
+            </PlanField>
+          ))}
+        </PlanSection>
+
+        <PlanSection number="+" title="Tambahan (di luar kerangka resmi)" note="Opsional" dark={dark}>
+          <PlanField label="Media, alat, bahan, dan K3LH" htmlFor="pl-media" optional hint="Berguna untuk praktik bengkel TSM: unit, BPR, SST, APD, dan lainnya.">
+            <textarea id="pl-media" className={ta(editing.mediaSumber)} value={editing.mediaSumber} onChange={(e) => set({ mediaSumber: e.target.value })} />
+          </PlanField>
+          <PlanField label="Remedial dan pengayaan" htmlFor="pl-remedial" optional>
+            <textarea id="pl-remedial" className={ta(editing.remedialPengayaan)} value={editing.remedialPengayaan} onChange={(e) => set({ remedialPengayaan: e.target.value })} />
+          </PlanField>
+        </PlanSection>
+
+        <div className={`sticky bottom-0 -mx-5 sm:-mx-6 px-5 sm:px-6 py-3 border-t flex flex-wrap items-center justify-between gap-3 ${dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'}`}>
+          <div className="text-xs">
+            <p className={`font-bold ${missing.length ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'}`} role="status">
+              Kelengkapan wajib: {done} dari {checklist.length}
+            </p>
+            {missing.length > 0 && <p className="text-slate-500 max-w-xl">Belum: {missing.map((x) => x.label).join('; ')}</p>}
           </div>
-          <div>
-            <label className="block text-xs font-semibold mb-1">Media & Sumber Belajar</label>
-            <input className={inputCls} value={editing.mediaSumber} onChange={(e) => setEditing({ ...editing, mediaSumber: e.target.value })} />
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-xs font-semibold" htmlFor="pl-status">Status</label>
+            <select id="pl-status" className={`${inputCls} w-auto`} value={editing.status} onChange={(e) => set({ status: e.target.value as 'Draft' | 'Final' | 'Arsip' })}>
+              <option value="Draft">Draft</option>
+              <option value="Final" disabled={missing.length > 0}>Final{missing.length ? ' (lengkapi butir wajib)' : ''}</option>
+              <option value="Arsip">Arsip</option>
+            </select>
+            <button type="button" onClick={() => setEditing(null)} className="px-4 py-2.5 rounded-xl border text-sm min-h-[44px]">Batal</button>
+            <button type="submit" className="px-6 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm min-h-[44px]">Simpan Perencanaan</button>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold mb-1">Pemahaman Bermakna</label>
-            <textarea rows={2} className={inputCls} value={editing.pemahamanBermakna} onChange={(e) => setEditing({ ...editing, pemahamanBermakna: e.target.value })} />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold mb-1">Pertanyaan Pemantik</label>
-            <textarea rows={2} className={inputCls} value={editing.pertanyaanPemantik} onChange={(e) => setEditing({ ...editing, pertanyaanPemantik: e.target.value })} />
-          </div>
-        </div>
-        <div>
-          <label className="block text-xs font-semibold mb-1">Kegiatan Pendahuluan (Safety Briefing & Apersepsi)</label>
-          <textarea rows={2} className={inputCls} value={editing.pendahuluan} onChange={(e) => setEditing({ ...editing, pendahuluan: e.target.value })} />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold mb-1">Kegiatan Inti (Eksplorasi BPR & Praktik Bengkel)</label>
-          <textarea rows={4} className={inputCls} value={editing.kegiatanInti} onChange={(e) => setEditing({ ...editing, kegiatanInti: e.target.value })} />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold mb-1">Kegiatan Penutup (5R & Refleksi)</label>
-          <textarea rows={2} className={inputCls} value={editing.penutup} onChange={(e) => setEditing({ ...editing, penutup: e.target.value })} />
-        </div>
-        <div className="flex justify-end gap-3">
-          <button type="button" onClick={() => setEditing(null)} className="px-4 py-2.5 rounded-xl border text-sm">Batal</button>
-          <button type="submit" className="px-6 py-2.5 rounded-xl bg-[#173B70] text-white font-semibold text-sm">Simpan Modul Ajar</button>
-        </div>
+        {formError && (
+          <div className="p-3 rounded-xl bg-rose-500/15 text-rose-700 dark:text-rose-300 text-xs font-semibold" role="alert">{formError}</div>
+        )}
       </form>
     );
   }
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-500">Kelola perencanaan pembelajaran fleksibel sesuai karakteristik bengkel TSM.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-slate-500">
+          Susun Perencanaan Pembelajaran Mendalam: Identifikasi, Desain Pembelajaran, Pengalaman Belajar, dan Asesmen.
+        </p>
         <button onClick={startNew} className="px-4 py-2.5 rounded-xl bg-[#173B70] text-white text-sm font-semibold flex items-center gap-2 min-h-[44px]">
-          <Plus size={17} /> Buat Modul Ajar Baru
+          <Plus size={17} /> Buat Perencanaan Baru
         </button>
       </div>
 
+      {modules.length === 0 && (
+        <div className={`${cardCls} p-6 text-sm text-slate-500`}>
+          Belum ada perencanaan pembelajaran. Klik "Buat Perencanaan Baru"; Anda dapat mengambil tujuan pembelajaran langsung dari daftar TP.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {modules.map((m) => (
-          <div key={m.id} className={`p-5 rounded-2xl border flex flex-col justify-between gap-4 ${dark ? 'bg-[#13203B] border-slate-800' : 'bg-white border-slate-200'}`}>
-            <div>
-              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                {m.status} • {m.alokasiWaktu}
-              </span>
-              <h4 className="font-bold text-base mt-2">{m.judulModul}</h4>
-              <p className="text-xs text-slate-500 mt-1">Model: {m.modelPembelajaran}</p>
+        {modules.map((m) => {
+          const subject = subjects.find((s) => s.id === m.subjectId);
+          const checklist = planChecklist(m);
+          const missing = checklist.filter((c) => !c.ok);
+          const tp = tps.find((x) => x.id === m.tpId);
+          return (
+            <div key={m.id} className={`p-5 ${cardCls} flex flex-col justify-between gap-4`}>
+              <div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800">{m.status}</span>
+                  <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${missing.length ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                    {missing.length ? `Wajib ${checklist.length - missing.length}/${checklist.length}` : 'Kerangka lengkap'}
+                  </span>
+                  {tp && <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#178C8C]/15 text-[#178C8C]">{tp.kodeTp}</span>}
+                </div>
+                <h4 className="font-bold text-base mt-2">{m.judulModul}</h4>
+                <p className="text-xs text-slate-500 mt-1">
+                  {subject?.namaMapel || '-'} • Kelas {m.tingkat} • Semester {semesterLabel(m.semester)}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {jamPelajaranText(m)} • {m.sistemPenjadwalan}
+                </p>
+                {m.dimensiProfil.length > 0 && <p className="text-[11px] text-slate-400 mt-1">Dimensi: {m.dimensiProfil.join(', ')}</p>}
+              </div>
+              <div className="flex items-center gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+                <button onClick={() => { setFormError(''); setEditing(m); }} className="px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1 min-h-[36px]">
+                  <Edit3 size={14} /> Edit
+                </button>
+                <button
+                  onClick={() => onOpenPrint(m.judulModul, <PlanPrint m={m} subject={subject} teacher={teacher} />, { kop: false })}
+                  className="px-3 py-1.5 rounded-lg bg-[#178C8C] text-white text-xs font-semibold flex items-center gap-1 min-h-[36px]"
+                >
+                  <Printer size={14} /> Cetak A4
+                </button>
+                <button onClick={() => onDelete(m.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg ml-auto" title="Hapus perencanaan">
+                  <Trash2 size={15} />
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
-              <button onClick={() => setEditing(m)} className="px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1">
-                <Edit3 size={14} /> Edit
-              </button>
-              <button
-                onClick={() =>
-                  onOpenPrint(
-                    m.judulModul,
-                    <div className="space-y-3 text-xs leading-relaxed">
-                      <p><strong>Alokasi Waktu:</strong> {m.alokasiWaktu} | <strong>Model:</strong> {m.modelPembelajaran}</p>
-                      <p><strong>Media & Sumber:</strong> {m.mediaSumber}</p>
-                      <div className="border p-3 rounded">
-                        <p className="font-bold mb-1">Pemahaman Bermakna:</p>
-                        <p>{m.pemahamanBermakna}</p>
-                      </div>
-                      <div className="border p-3 rounded whitespace-pre-line">
-                        <p className="font-bold mb-1">1. Pendahuluan:</p>
-                        <p>{m.pendahuluan}</p>
-                        <p className="font-bold mt-2 mb-1">2. Kegiatan Inti:</p>
-                        <p>{m.kegiatanInti}</p>
-                        <p className="font-bold mt-2 mb-1">3. Penutup:</p>
-                        <p>{m.penutup}</p>
-                      </div>
-                    </div>
-                  )
-                }
-                className="px-3 py-1.5 rounded-lg bg-[#178C8C] text-white text-xs font-semibold flex items-center gap-1"
-              >
-                <Printer size={14} /> Cetak A4
-              </button>
-              <button onClick={() => onDelete(m.id)} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg ml-auto">
-                <Trash2 size={15} />
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
