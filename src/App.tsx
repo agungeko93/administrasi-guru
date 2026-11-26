@@ -46,6 +46,7 @@ const APP_CONFIG = {
   cloudVersionKey: 'mototeach_workspace_v1_cloud_version',
   dirtyKey: 'mototeach_workspace_v1_dirty',
   navGroupsKey: 'mototeach_workspace_v1_nav_groups',
+  urlOverrideKey: 'mototeach_workspace_v1_url_override',
 };
 
 // ============================================================================
@@ -1232,6 +1233,22 @@ const readStoredNumber = (key: string): number | null => {
     return null;
   }
 };
+// URL Web App: nilai bawaan ada di kode. Nilai yang tersimpan di browser HANYA berupa "penggantian"
+// yang sengaja diisi pengguna; URL lama yang pernah tersimpan otomatis tidak lagi dipakai.
+const readUrlOverride = (): string => {
+  try {
+    const v = (localStorage.getItem(APP_CONFIG.urlOverrideKey) || '').trim();
+    return /^https:\/\//i.test(v) ? v : '';
+  } catch {
+    return '';
+  }
+};
+
+// Kegagalan menghubungi server (belum ada jawaban dari skrip): layak dicoba ulang dengan URL bawaan.
+// Jawaban JSON dari server (mis. kata sandi salah, terkunci) TIDAK termasuk.
+const isConnectionFailure = (code: string): boolean =>
+  code === 'NETWORK' || code === 'TIMEOUT' || code === 'INVALID_RESPONSE' || code === 'NOT_CONFIGURED';
+
 const readStoredFlag = (key: string): boolean => {
   try {
     return localStorage.getItem(key) === '1';
@@ -2265,7 +2282,7 @@ export default function App() {
       return {
         ...DEFAULT_SETTINGS,
         ...parsed,
-        appsScriptUrl: parsed.appsScriptUrl || APP_CONFIG.defaultAppsScriptUrl,
+        appsScriptUrl: readUrlOverride() || APP_CONFIG.defaultAppsScriptUrl,
       };
     } catch {
       return DEFAULT_SETTINGS;
@@ -2359,7 +2376,8 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(APP_CONFIG.configKey, JSON.stringify(settings));
+      const { appsScriptUrl: _urlTidakDisimpan, ...settingsTanpaUrl } = settings; // URL punya tempat sendiri (penggantian)
+      localStorage.setItem(APP_CONFIG.configKey, JSON.stringify(settingsTanpaUrl));
     } catch {}
   }, [settings]);
 
@@ -2462,9 +2480,19 @@ export default function App() {
 
   // Mengembalikan pesan kesalahan, atau null jika berhasil.
   const handleLogin = async (email: string, password: string, remember: boolean): Promise<string | null> => {
-    const url = settingsRef.current.appsScriptUrl;
-    if (!url) return 'URL Google Apps Script belum diisi.';
-    const res = await apiService.login(url, email, password);
+    const url = settingsRef.current.appsScriptUrl || APP_CONFIG.defaultAppsScriptUrl;
+    let res = await apiService.login(url, email, password);
+    let recovered = false;
+    // URL tersimpan tidak bisa dihubungi (404, jaringan, bukan JSON): coba sekali dengan URL bawaan aplikasi
+    if (!res.success && isConnectionFailure(res.code) && url !== APP_CONFIG.defaultAppsScriptUrl) {
+      const fallback = await apiService.login(APP_CONFIG.defaultAppsScriptUrl, email, password);
+      if (fallback.success) {
+        recovered = true;
+      } else if (isConnectionFailure(fallback.code)) {
+        fallback.message = `Tidak dapat menghubungi server, baik dengan URL tersimpan maupun URL bawaan. ${fallback.message}`;
+      }
+      res = fallback;
+    }
     if (!res.success || !res.token || typeof res.expiresAt !== 'number') {
       return res.message || 'Login gagal. Silakan coba lagi.';
     }
@@ -2474,6 +2502,13 @@ export default function App() {
     setLoginNotice('');
     setIsAuthenticated(true);
     showToast('success', 'Selamat datang kembali di MotoTeach Workspace!');
+    if (recovered) {
+      writeStored(APP_CONFIG.urlOverrideKey, null);
+      const next = { ...settingsRef.current, appsScriptUrl: APP_CONFIG.defaultAppsScriptUrl };
+      settingsRef.current = next;
+      setSettings(next);
+      showToast('info', 'URL Web App yang tersimpan tidak dapat dihubungi, jadi aplikasi kembali memakai URL bawaan.');
+    }
     return null;
   };
 
@@ -3329,7 +3364,12 @@ export default function App() {
             syncStatus={syncStatus}
             lastSyncTime={lastSyncTime}
             syncDetail={syncDetail}
-            onUpdateSettings={(next) => {
+            onUpdateSettings={(raw) => {
+              // URL hanya disimpan sebagai "penggantian" bila sengaja berbeda dari URL bawaan aplikasi
+              const typed = (raw.appsScriptUrl || '').trim();
+              const isCustom = !!typed && typed !== APP_CONFIG.defaultAppsScriptUrl;
+              writeStored(APP_CONFIG.urlOverrideKey, isCustom ? typed : null);
+              const next = { ...raw, appsScriptUrl: isCustom ? typed : APP_CONFIG.defaultAppsScriptUrl };
               const connectionChanged = next.appsScriptUrl !== settings.appsScriptUrl;
               settingsRef.current = next;
               setSettings(next);
@@ -8658,13 +8698,33 @@ const SettingsBackupView: React.FC<{
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
-            <label className="block text-xs font-semibold mb-1">URL Web App Google Apps Script</label>
+            <label htmlFor="set-url" className="block text-xs font-semibold mb-1">URL Web App Google Apps Script</label>
             <input
+              id="set-url"
               className={inputCls}
               placeholder="https://script.google.com/macros/s/AKfycb.../exec"
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
             />
+            {urlInput.trim() && urlInput.trim() !== APP_CONFIG.defaultAppsScriptUrl ? (
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px]">
+                <span className="text-amber-700 dark:text-amber-300 font-semibold">
+                  URL kustom: berbeda dari URL bawaan aplikasi.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUrlInput(APP_CONFIG.defaultAppsScriptUrl);
+                    onUpdateSettings({ ...settings, appsScriptUrl: APP_CONFIG.defaultAppsScriptUrl, tahunAjaran: tahun, semester });
+                  }}
+                  className="px-2.5 py-1 rounded-lg border border-[#178C8C] text-[#178C8C] font-semibold min-h-[32px]"
+                >
+                  Pakai URL bawaan
+                </button>
+              </div>
+            ) : (
+              <p className="mt-1.5 text-[11px] text-slate-400">Memakai URL bawaan aplikasi.</p>
+            )}
           </div>
           <div>
             <label className="block text-xs font-semibold mb-1">Tahun Ajaran Aktif</label>
@@ -8681,7 +8741,11 @@ const SettingsBackupView: React.FC<{
 
         <div className="flex flex-wrap gap-3 pt-2">
           <button
-            onClick={() => onUpdateSettings({ ...settings, appsScriptUrl: urlInput.trim(), tahunAjaran: tahun, semester })}
+            onClick={() => {
+              const finalUrl = urlInput.trim() || APP_CONFIG.defaultAppsScriptUrl;
+              setUrlInput(finalUrl);
+              onUpdateSettings({ ...settings, appsScriptUrl: finalUrl, tahunAjaran: tahun, semester });
+            }}
             className="px-5 py-2.5 rounded-xl bg-[#173B70] text-white text-xs font-bold min-h-[44px]"
           >
             Simpan Konfigurasi
